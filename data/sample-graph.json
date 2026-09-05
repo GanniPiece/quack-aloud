@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "symptoms",
+      "title": "Symptoms"
+    },
+    {
+      "id": "causes",
+      "title": "Causes"
+    },
+    {
+      "id": "next-checks",
+      "title": "Next checks"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "home-slow",
+      "label": "Home page loads slowly",
+      "detail": "About 3 seconds before anything shows up",
+      "origin": "user",
+      "kind": "idea",
+      "x": 0,
+      "y": 0,
+      "createdAt": 1,
+      "group": "symptoms"
+    },
+    {
+      "id": "db-every-request",
+      "label": "Every request hits the database",
+      "origin": "user",
+      "kind": "idea",
+      "x": 360,
+      "y": 0,
+      "createdAt": 1,
+      "group": "causes"
+    },
+    {
+      "id": "cache-ttl",
+      "label": "How long can cached data be stale?",
+      "detail": "How often does the data change, and how stale is acceptable to users?",
+      "origin": "ai",
+      "kind": "question",
+      "x": 720,
+      "y": 148,
+      "createdAt": 1,
+      "group": "next-checks"
+    },
+    {
+      "id": "measure-first",
+      "label": "Measure before guessing",
+      "detail": "Of those 3 seconds, how much is the DB vs. front-end render?",
+      "origin": "ai",
+      "kind": "insight",
+      "x": 720,
+      "y": 0,
+      "createdAt": 1,
+      "group": "next-checks"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "db-every-request",
+      "target": "home-slow",
+      "label": "causes",
+      "origin": "user"
+    },
+    {
+      "id": "e2",
+      "source": "db-every-request",
+      "target": "cache-ttl",
+      "label": "requires",
+      "origin": "ai"
+    },
+    {
+      "id": "e3",
+      "source": "home-slow",
+      "target": "measure-first",
+      "label": "first",
+      "origin": "ai"
+    }
+  ],
+  "messages": [
+    {
+      "role": "user",
+      "content": "The home page loads slowly. I think it's because every request hits the database.",
+      "ts": 1
+    },
+    {
+      "role": "assistant",
+      "content": "So you already have a hypothesis. Before adding a cache, do you know how much of those 3 seconds is actually spent in the database?",
+      "ts": 2
+    }
+  ],
+  "updatedAt": 0
+}
