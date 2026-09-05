@@ -54,6 +54,14 @@ To try the canvas without an API key, use "Import" (top right of the canvas) on 
 | Map / Timeline | Top bar | **Map**: the free-form canvas. **Timeline**: the same cards grouped by the turn that created them, in the order you said them | Both read the same `graph.json`; the choice is remembered per browser |
 | Layout (on the map) | Top right of the canvas | How cards are arranged. **Auto** (Default) follows the duck's suggestion for the content; or pin one: **Themes** (one column per theme with containers), **Layered** (ranked left-to-right by edge direction, for cause/effect and dependencies), **Timeline** (a numbered time axis through the events, with labelled swim lanes: people and things above, claims and beliefs below, the duck's notes at the bottom; for stories and processes), **Mind map** (a tree spreading from the central concept, for knowledge; hierarchy relations such as "kind of", "part of", 屬於 are followed first, so intermediate concept cards become the levels) | Changing it re-arranges the canvas right away. After each duck turn the canvas is re-arranged in the current layout, except Themes, where new cards simply join their theme's column |
 
+## Chat
+
+| Feature | Note |
+|---|---|
+| Your message appears at once, marked "Sending…" | Replaced by the saved copy when the duck answers |
+| Keep typing while the duck thinks | Enter or "Queue" adds the message to a queue; messages are sent one at a time in order. If a send fails, the failed message and everything queued behind it go back into the box |
+| Dictation | The microphone button next to Send uses the browser's speech recognition (Chrome, Edge, Safari). Speak, watch the text appear, press Enter. Language follows the browser's language; the button is hidden where the API is not available |
+
 ## Using the canvas
 
 | Action | How |

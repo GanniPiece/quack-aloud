@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type HealthInfo } from "./api";
 import { Canvas } from "./components/Canvas";
-import { ChatPanel } from "./components/ChatPanel";
+import { ChatPanel, type PendingMessage } from "./components/ChatPanel";
 import { DuckIcon } from "./components/DuckIcon";
 import { ProjectSwitcher } from "./components/ProjectSwitcher";
 import { Timeline } from "./components/Timeline";
@@ -35,6 +35,9 @@ export default function App() {
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Messages waiting for the duck: the first is in flight, the rest are queued
+  const [pending, setPending] = useState<PendingMessage[]>([]);
+  const [restore, setRestore] = useState<{ key: number; text: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [project, setProject] = useState<string | null>(() => readSetting(PROJECT_KEY, "") || null);
   const { graph, projects, connected, update, adopt } = useGraph(project, setNotice);
@@ -93,24 +96,46 @@ export default function App() {
     });
   }, []);
 
-  const send = useCallback(
-    async (text: string) => {
-      if (!project) return;
-      setBusy(true);
-      setError(null);
-      const started = Date.now();
-      try {
-        const res = await api.think(project, text, guide);
-        adopt(res.graph);
-        setFreshSince(started);
-      } catch (err) {
+  /** Enqueue; the effect below sends one message at a time, in order. */
+  const send = useCallback((text: string) => {
+    setError(null);
+    setPending((q) => [...q, { id: Date.now() + Math.random(), text, status: q.length === 0 ? "sending" : "queued" }]);
+  }, []);
+
+  // One request in flight at a time. Gated by a ref, not by `busy`, so the effect never
+  // cancels its own request when it flips the busy flag.
+  const inFlight = useRef(false);
+  const projectRef = useRef(project);
+  projectRef.current = project;
+  useEffect(() => {
+    if (inFlight.current || pending.length === 0 || !project) return;
+    const head = pending[0];
+    inFlight.current = true;
+    setBusy(true);
+    setPending((q) => q.map((p, i) => ({ ...p, status: i === 0 ? "sending" : "queued" })));
+    const started = Date.now();
+    api
+      .think(project, head.text, guide)
+      .then((res) => {
+        if (projectRef.current === project) {
+          adopt(res.graph);
+          setFreshSince(started);
+        }
+        setPending((q) => q.filter((p) => p.id !== head.id));
+      })
+      .catch((err) => {
+        // Nothing is lost: the failed message and everything queued behind it go back into the box
         setError((err as Error).message);
-      } finally {
+        setPending((q) => {
+          setRestore({ key: Date.now(), text: q.map((p) => p.text).join("\n") });
+          return [];
+        });
+      })
+      .finally(() => {
+        inFlight.current = false;
         setBusy(false);
-      }
-    },
-    [adopt, guide, project],
-  );
+      });
+  }, [pending, project, guide, adopt]);
 
   const reset = useCallback(() => {
     if (!project) return;
@@ -235,10 +260,12 @@ export default function App() {
         {chatOpen && (
           <ChatPanel
             messages={graph?.messages ?? []}
+            pending={pending}
             busy={busy}
             error={error}
             disabledReason={disabledReason}
             guide={guide}
+            restore={restore}
             onGuideChange={changeGuide}
             onCollapse={toggleChat}
             onSend={send}
