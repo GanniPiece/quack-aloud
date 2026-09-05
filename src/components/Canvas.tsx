@@ -146,20 +146,24 @@ interface EdgeExtras {
   treeEdges?: Set<string>;
 }
 
-/** Edges leave from the side facing the target, so backwards links do not loop around the card. */
+/**
+ * Edges leave from the side facing the target and arrive on the side facing the source, so a
+ * link never loops around a card. Handles are always named: React Flow would otherwise pick the
+ * first handle in DOM order, which is not necessarily the right-hand one.
+ */
 function toRFEdges(graph: Graph, extras: EdgeExtras = {}): (Edge | RoutedRFEdge)[] {
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
   return graph.edges.map((e) => {
     const s = byId.get(e.source), t = byId.get(e.target);
-    const backwards = s && t && t.x + NODE_W / 2 < s.x + NODE_W / 2;
+    const backwards = !!(s && t && t.x + NODE_W / 2 < s.x + NODE_W / 2);
     const route = extras.routes?.get(e.id);
     const cross = extras.treeEdges && !extras.treeEdges.has(e.id);
     const base = {
       id: e.id,
       source: e.source,
       target: e.target,
-      sourceHandle: backwards ? "sl" : undefined,
-      targetHandle: backwards ? "tr" : undefined,
+      sourceHandle: backwards ? "sl" : "sr",
+      targetHandle: backwards ? "tr" : "tl",
       label: e.label,
       className: `edge-${e.origin}${cross ? " edge-cross" : ""}`,
       animated: false,

@@ -63,7 +63,8 @@ function ThoughtNodeView({ data, selected }: NodeProps<ThoughtRFNode>) {
   };
   return (
     <div className={cls} title={data.editing ? undefined : data.source ? `From: "${data.source}"` : "Double-click to edit"}>
-      <Handle type="target" position={Position.Left} />
+      {/* Four handles, all with ids: edges always say which side they use (see toRFEdges) */}
+      <Handle type="target" position={Position.Left} id="tl" />
       <Handle type="source" position={Position.Left} id="sl" className="alt-handle" />
       <div className="thought-head">
         <span className="badge">
@@ -98,7 +99,7 @@ function ThoughtNodeView({ data, selected }: NodeProps<ThoughtRFNode>) {
       )}
       {!data.editing && data.detail && <div className="thought-detail">{data.detail}</div>}
       {data.groupTitle && <div className={`group-tag tone-${(data.tone ?? 0) % 6}`}>{data.groupTitle}</div>}
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} id="sr" />
       <Handle type="target" position={Position.Right} id="tr" className="alt-handle" />
     </div>
   );
