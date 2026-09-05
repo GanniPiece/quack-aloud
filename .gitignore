@@ -8,3 +8,4 @@ data/graph.json.migrated
 data/projects/
 data/backup-*.json
 .claude/
+data/trash/

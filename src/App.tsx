@@ -53,19 +53,13 @@ export default function App() {
     setError(null);
   }, []);
 
-  // Keep the selection valid against the live project list: fall back to the newest project,
-  // or create one when there is none at all.
+  // Keep the selection valid against the live project list: fall back to the newest project.
+  // Never create projects from here: the server guarantees at least one exists, and a reactive
+  // "create when empty" once produced a dozen duplicates in a single second.
   useEffect(() => {
-    if (!projects) return;
+    if (!projects || projects.length === 0) return;
     if (project && projects.some((p) => p.id === project)) return;
-    if (projects.length > 0) {
-      selectProject(projects[0].id);
-      return;
-    }
-    api
-      .createProject("My project")
-      .then(({ id }) => selectProject(id))
-      .catch((err) => setNotice((err as Error).message));
+    selectProject(projects[0].id);
   }, [projects, project, selectProject]);
 
   // Notices (e.g. "canvas changed elsewhere") fade on their own
@@ -154,9 +148,9 @@ export default function App() {
     (id: string) => {
       api
         .deleteProject(id)
-        .then(() => {
-          if (id === project) selectProject(null);
-          setNotice("Project deleted.");
+        .then(({ replacement }) => {
+          if (id === project) selectProject(replacement);
+          setNotice("Project moved to data/trash.");
         })
         .catch((err) => setNotice((err as Error).message));
     },
@@ -253,7 +247,13 @@ export default function App() {
         <section className="canvas">
           {notice && <div className="notice">{notice}</div>}
           {!graph ? (
-            <div className="loading">{projects && projects.length === 0 ? "Creating your first project…" : "Loading project…"}</div>
+            <div className="loading">
+              {projects && projects.length === 0 ? (
+                <button className="ghost" onClick={() => createProject("My project")}>Create a project</button>
+              ) : (
+                "Loading project…"
+              )}
+            </div>
           ) : view === "map" ? (
             <Canvas
               key={project ?? "none"}

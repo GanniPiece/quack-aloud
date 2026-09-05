@@ -9,7 +9,7 @@ import type { ThinkOutput } from "./providers/types";
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "rubber-duck-test-"));
 process.env.DATA_DIR = tmp;
 const { applyThinkResult, findFreeSpot, normalize, placeInGroup } = await import("./graph");
-const { createProject, deleteProject, ensureMigrated, listProjects, loadProject, renameProject, saveProject } = await import("./projects");
+const { createProject, deleteProject, ensureMigrated, ensureOneProject, listProjects, loadProject, renameProject, saveProject } = await import("./projects");
 
 function node(id: string, extra: Partial<ThoughtNode> = {}): ThoughtNode {
   return { id, label: id, origin: "user", kind: "idea", x: 0, y: 0, createdAt: 1, ...extra };
@@ -90,9 +90,26 @@ describe("project store", () => {
     expect(renameProject("nope", "x")).toBeNull();
     expect(listProjects()[0]).toMatchObject({ id, name: "Cats", nodeCount: 1 }); // most recently saved first
 
-    expect(deleteProject(id)).toBe(true);
-    expect(deleteProject(id)).toBe(false);
+    expect(deleteProject(id)).toEqual({ deleted: true, replacement: undefined }); // "my-project" still exists
+    expect(deleteProject(id)).toEqual({ deleted: false });
     expect(loadProject(id)).toBeNull();
+    const trashed = fs.readdirSync(path.join(tmp, "trash")).filter((f) => f.startsWith(`${id}-`));
+    expect(trashed).toHaveLength(1);
+  });
+
+  it("deleting the last project moves it to trash and creates a fresh one", () => {
+    for (const p of listProjects()) if (p.id !== "my-project") deleteProject(p.id);
+    const before = listProjects();
+    expect(before).toHaveLength(1);
+    const result = deleteProject(before[0].id);
+    expect(result.deleted).toBe(true);
+    expect(result.replacement).toBeDefined();
+    const after = listProjects();
+    expect(after).toHaveLength(1);
+    expect(after[0].id).toBe(result.replacement);
+    expect(after[0].nodeCount).toBe(0);
+    expect(ensureOneProject()).toBe(after[0].id); // no duplicates when one exists
+    expect(listProjects()).toHaveLength(1);
   });
 
   it("rejects unsafe ids", () => {

@@ -9,6 +9,7 @@ import {
   createProject,
   deleteProject,
   ensureMigrated,
+  ensureOneProject,
   isValidId,
   listProjects,
   loadProject,
@@ -24,6 +25,7 @@ app.use(express.json({ limit: "8mb" }));
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 ensureMigrated();
+ensureOneProject();
 
 // ---------- SSE: push project changes to browsers ----------
 // event "graph": { project, graph } whenever a project file changes
@@ -140,12 +142,13 @@ app.patch("/api/projects/:id", (req, res) => {
 
 app.delete("/api/projects/:id", (req, res) => {
   const { id } = req.params;
-  if (!isValidId(id) || !deleteProject(id)) {
+  const result = isValidId(id) ? deleteProject(id) : { deleted: false };
+  if (!result.deleted) {
     res.status(404).json({ error: `No project "${id}"` });
     return;
   }
   broadcastProjects();
-  res.json({ ok: true });
+  res.json({ ok: true, replacement: result.replacement ?? null });
 });
 
 app.get("/api/graph", (req, res) => {

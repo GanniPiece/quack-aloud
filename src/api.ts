@@ -44,7 +44,7 @@ export const api = {
       (r) => json<{ id: string; graph: Graph }>(r),
     ),
   deleteProject: (id: string) =>
-    fetch(`/api/projects/${encodeURIComponent(id)}`, { method: "DELETE" }).then((r) => json<{ ok: true }>(r)),
+    fetch(`/api/projects/${encodeURIComponent(id)}`, { method: "DELETE" }).then((r) => json<{ ok: true; replacement: string | null }>(r)),
 
   getGraph: (project: string) => fetch(`/api/graph?project=${encodeURIComponent(project)}`).then((r) => json<Graph>(r)),
   /** Resolves with the saved graph, or rejects with ConflictError carrying the server's current graph. */

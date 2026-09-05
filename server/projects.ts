@@ -4,6 +4,8 @@ import { emptyGraph, type Graph } from "../shared/graph";
 import { DATA_DIR, normalize } from "./graph";
 
 export const PROJECTS_DIR = path.join(DATA_DIR, "projects");
+/** Deleted projects are moved here, never removed outright. */
+export const TRASH_DIR = path.join(DATA_DIR, "trash");
 const LEGACY_GRAPH = path.join(DATA_DIR, "graph.json");
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const DEFAULT_NAME = "Untitled project";
@@ -80,11 +82,26 @@ export function renameProject(id: string, name: string): Graph | null {
   return writeGraph(id, { ...g, name: name.trim() || DEFAULT_NAME });
 }
 
-export function deleteProject(id: string): boolean {
+/**
+ * Moves the project file to data/trash/<id>-<timestamp>.json. If that was the last project,
+ * a fresh empty one is created so the app always has somewhere to type. Returns the id of
+ * the replacement when one was created.
+ */
+export function deleteProject(id: string): { deleted: boolean; replacement?: string } {
   const file = projectPath(id);
-  if (!fs.existsSync(file)) return false;
-  fs.rmSync(file);
-  return true;
+  if (!fs.existsSync(file)) return { deleted: false };
+  fs.mkdirSync(TRASH_DIR, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  fs.renameSync(file, path.join(TRASH_DIR, `${id}-${stamp}.json`));
+  const replacement = listProjects().length === 0 ? ensureOneProject() : undefined;
+  return { deleted: true, replacement };
+}
+
+/** Creates "My project" when the folder is empty; returns the id of the project that exists. */
+export function ensureOneProject(): string {
+  const existing = listProjects();
+  if (existing.length > 0) return existing[0].id;
+  return createProject("My project").id;
 }
 
 function writeGraph(id: string, graph: Graph): Graph {

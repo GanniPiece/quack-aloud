@@ -44,7 +44,7 @@ To try the canvas without an API key, use "Import" (top right of the canvas) on 
 |---|---|---|---|
 | Project picker | Top bar, next to the title | Switch between projects. Each project is its own canvas and chat | The last opened project is remembered per browser |
 | + New project… | Last entry of the picker | Type a name, Enter | Starts empty |
-| Rename / Delete | Next to the picker | Rename inline; Delete asks once, inline | Deleting a project removes its file. Export first if you want a copy |
+| Rename / Delete | Next to the picker | Rename inline; Delete asks once, inline | A deleted project is moved to `data/trash/<id>-<time>.json`, not removed; copy it back into `data/projects/` to restore it. Deleting the last project creates a fresh empty one |
 
 ## Modes and views
 
