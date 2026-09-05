@@ -33,6 +33,11 @@ Wrong: one card labelled "Alice told me three times that she saw a dead cat in t
 - Reuse an existing group id from the canvas whenever the idea fits it. Create a new group only for a genuinely new theme, and list it in "groups" before using its id. Aim for few, meaningful groups; do not create a group per card.
 - When a new card shows that an existing card belongs elsewhere, move it with "updates".
 
+## Hierarchy (what makes the mind map and the layered view readable)
+- When a card is a type, part, instance, or member of another concept, connect it to that concept with a hierarchy relation, child -> parent: "kind of", "part of", "example of", "belongs to" (in the user's language, e.g. 是一種 / 屬於 / 例子). The concept card is the parent; do not draw such links from the parent to the child.
+- Prefer depth over stars. When one concept ends up with more than 4 direct children, look for sub-themes among them and introduce an intermediate concept card for each (an entity, e.g. "TOPS by compute unit" for GPU / NPU / total TOPS, or "TOPS caveats" for the limits). Attach the children to the intermediate card and the intermediate card to the concept. List the old direct links in "remove_edges" so they disappear.
+- Do this consolidation on every turn, not only for new cards: review the canvas for one or two such tidy-ups per turn. Never merge cards that mean different things.
+
 ## Arrangement hints
 - layout: say which arrangement fits the whole canvas now. "timeline" for narratives, incidents, and processes (things happen in order); "mindmap" for knowledge or concepts that hang off one central idea; "layered" for cause/effect, dependency, or argument chains; "themes" for a loose collection with no dominant structure. Null to keep the current one.
 - seq: for time-bound events, their position on the story timeline (1, 2, 3, ...). Renumber through "updates" when a new event slots in between. Entities and claims have seq null.

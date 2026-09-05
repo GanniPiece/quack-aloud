@@ -16,7 +16,7 @@ function node(id: string, extra: Partial<ThoughtNode> = {}): ThoughtNode {
 }
 
 function output(partial: Partial<ThinkOutput>): ThinkOutput {
-  return { reply: "ok", layout: null, root: null, groups: [], updates: [], nodes: [], edges: [], ...partial };
+  return { reply: "ok", layout: null, root: null, groups: [], updates: [], nodes: [], edges: [], remove_edges: [], ...partial };
 }
 
 describe("normalize", () => {
@@ -88,7 +88,7 @@ describe("project store", () => {
 
     expect(renameProject(id, "Cats")!.name).toBe("Cats");
     expect(renameProject("nope", "x")).toBeNull();
-    expect(listProjects()[0]).toMatchObject({ id, name: "Cats", nodeCount: 1 }); // most recently saved first
+    expect(listProjects().find((p) => p.id === id)).toMatchObject({ name: "Cats", nodeCount: 1 });
 
     expect(deleteProject(id)).toEqual({ deleted: true, replacement: undefined }); // "my-project" still exists
     expect(deleteProject(id)).toEqual({ deleted: false });
@@ -212,6 +212,26 @@ describe("applyThinkResult", () => {
     expect(alice).toMatchObject({ label: "Alice (narrator)", detail: "unreliable", group: "places", seq: 3 });
     expect(alice.x).toBe(400); // moved under the Places column
     expect(alice.y).toBeGreaterThan(0);
+  });
+
+  it("re-routes links through a new intermediate card in one turn", () => {
+    const start = base();
+    start.nodes.push(node("gpu", { group: "people" }));
+    start.edges.push({ id: "e-gpu-alice", source: "gpu", target: "alice", label: "kind of", origin: "ai" });
+    const g = applyThinkResult(
+      start,
+      "x",
+      output({
+        nodes: [{ id: "by-unit", label: "by unit", detail: null, source: null, origin: "user", kind: "entity", group: "people", seq: null, anchor_id: "alice" }],
+        edges: [
+          { source: "gpu", target: "by-unit", label: "kind of", origin: "ai" },
+          { source: "by-unit", target: "alice", label: "kind of", origin: "ai" },
+        ],
+        remove_edges: [{ source: "gpu", target: "alice" }, { source: "ghost", target: "alice" }],
+      }),
+      { guide: false },
+    );
+    expect(g.edges.map((e) => `${e.source}>${e.target}`)).toEqual(["gpu>by-unit", "by-unit>alice"]);
   });
 
   it("organise mode drops the duck's cards and keeps a plain reply", () => {

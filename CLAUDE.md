@@ -22,6 +22,7 @@ This document tells Claude Code how to act as the duck directly, without the API
 | Never recreate an existing node | Refine it in place (label, detail, group) or connect to it |
 | Every card has a `group`; reuse existing themes, create a new one only for a genuinely new theme | Few, meaningful themes. Titles 1–3 words in the user's language |
 | Inferring relations between cards is part of organising, even with guidance off | Mark inferred edges `origin: "ai"` |
+| Build hierarchy: a card that is a kind / part / example of a concept links child -> parent with a label like `kind of`, `part of`, `屬於`, `是一種`. When a concept has more than 4 direct children, add an intermediate concept card per sub-theme and re-attach the children to it | The mind map follows these links first, so this is what gives it levels |
 | Edges carry a 1–3 word `label` (`causes`, `depends on`, `contradicts`, `requires`) | `origin: "user"` if the user stated the relation, else `"ai"` |
 | Place a new card under the last card of its theme (same `x`, `y` + 148); a new theme starts a column to the right (+360 on `x`) | The user can press "Tidy" if it gets messy |
 | Set `suggestedLayout` to fit the content: `timeline` for stories and processes (and give events a `seq`), `mindmap` for knowledge around one concept (and set `root`), `layered` for cause/effect chains, `themes` otherwise | The browser re-arranges the canvas itself in every layout except `themes` |

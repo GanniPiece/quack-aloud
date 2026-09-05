@@ -201,6 +201,29 @@ describe("mindmap", () => {
     expect(tree.children.get(tree.rootId)).toContain("island");
   });
 
+  it("follows hierarchy links first so the tree gets levels", () => {
+    // TOPS <- (kind of) total / gpu / npu ; TOPS <- (kind of) by-unit <- (kind of) gpu, npu ; a stray "measures" link
+    const g: Graph = {
+      ...emptyGraph(),
+      nodes: [node("tops"), node("by-unit"), node("total"), node("gpu"), node("npu"), node("compute")],
+      edges: [
+        edge("total", "tops", { label: "kind of" }),
+        edge("by-unit", "tops", { label: "屬於" }),
+        edge("gpu", "by-unit", { label: "是一種" }),
+        edge("npu", "by-unit", { label: "kind of" }),
+        edge("tops", "compute", { label: "measures" }),
+        edge("gpu", "tops", { label: "mentions" }), // a cross link must not steal gpu from by-unit
+      ],
+    };
+    const tree = mindmapTree(g)!;
+    expect(tree.rootId).toBe("tops");
+    expect(tree.children.get("tops")).toEqual(["total", "by-unit", "compute"]);
+    expect(tree.children.get("by-unit")).toEqual(["gpu", "npu"]);
+    const treeEdges = mindmapTreeEdgeIds(g);
+    expect(treeEdges.has("e-gpu-by-unit")).toBe(true);
+    expect(treeEdges.has("e-gpu-tops")).toBe(false);
+  });
+
   it("marks exactly the tree links as tree edges", () => {
     const ids = mindmapTreeEdgeIds(story());
     expect(ids.size).toBe(6); // 7 cards, one spanning tree

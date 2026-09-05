@@ -1,5 +1,15 @@
 import dagre from "@dagrejs/dagre";
-import { GAP_X, GAP_Y, GROUP_PAD, NODE_H, NODE_W, type Graph, type LayoutKind, type ThoughtNode } from "../shared/graph";
+import {
+  GAP_X,
+  GAP_Y,
+  GROUP_PAD,
+  isHierarchyEdge,
+  NODE_H,
+  NODE_W,
+  type Graph,
+  type LayoutKind,
+  type ThoughtNode,
+} from "../shared/graph";
 
 export interface Size {
   w: number;
@@ -232,31 +242,50 @@ interface MindTree {
   children: Map<string, string[]>;
 }
 
-/** Root (pinned or the best-connected card) and the BFS tree that hangs off it. */
+/**
+ * Root (pinned, or the concept with the most hierarchy children, or the best-connected card)
+ * and the tree that hangs off it. Hierarchy links ("kind of", "part of", 屬於...) are followed
+ * first, child under parent, so the tree shows levels; other links only fill in what is left.
+ */
 export function mindmapTree(graph: Graph): MindTree | null {
   if (graph.nodes.length === 0) return null;
   const adj = neighbours(graph);
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  // hierarchy children per parent: edges child -> parent with a hierarchy label
+  const hierKids = new Map<string, string[]>(graph.nodes.map((n) => [n.id, []]));
+  for (const e of graph.edges) if (isHierarchyEdge(e)) hierKids.get(e.target)?.push(e.source);
   const degree = (id: string) => adj.get(id)?.size ?? 0;
+  const score = (id: string) => (hierKids.get(id)?.length ?? 0) * 3 + degree(id);
   const pick = (ids: string[]) =>
-    [...ids].sort((a, b) => degree(b) - degree(a) || byId.get(a)!.createdAt - byId.get(b)!.createdAt)[0];
+    [...ids].sort((a, b) => score(b) - score(a) || byId.get(a)!.createdAt - byId.get(b)!.createdAt)[0];
 
   const rootId = graph.root && byId.has(graph.root) ? graph.root : pick(graph.nodes.map((n) => n.id));
   const children = new Map<string, string[]>(graph.nodes.map((n) => [n.id, []]));
   const seen = new Set<string>([rootId]);
+  const byTime = (a: string, b: string) => byId.get(a)!.createdAt - byId.get(b)!.createdAt;
   const bfs = (start: string) => {
     const queue = [start];
     while (queue.length) {
       const cur = queue.shift()!;
-      const next = [...(adj.get(cur) ?? [])]
-        .filter((id) => !seen.has(id))
-        .sort((a, b) => byId.get(a)!.createdAt - byId.get(b)!.createdAt);
-      for (const id of next) {
+      // 1. cards that are explicitly "a kind / part / example of" this one
+      const hier = [...(hierKids.get(cur) ?? [])].filter((id) => !seen.has(id)).sort(byTime);
+      // 2. then any other neighbour that no hierarchy parent will claim
+      const rest = [...(adj.get(cur) ?? [])]
+        .filter((id) => !seen.has(id) && !hier.includes(id) && !hasUnseenHierarchyParent(id))
+        .sort(byTime);
+      for (const id of [...hier, ...rest]) {
         seen.add(id);
         children.get(cur)!.push(id);
         queue.push(id);
       }
     }
+  };
+  // a card whose hierarchy parent is still unplaced should wait for that parent
+  const hierParent = new Map<string, string>();
+  for (const e of graph.edges) if (isHierarchyEdge(e) && !hierParent.has(e.source)) hierParent.set(e.source, e.target);
+  const hasUnseenHierarchyParent = (id: string) => {
+    const p = hierParent.get(id);
+    return !!p && !seen.has(p) && p !== id;
   };
   bfs(rootId);
   while (seen.size < graph.nodes.length) {

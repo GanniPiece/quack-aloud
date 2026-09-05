@@ -41,6 +41,8 @@ describe("buildThinkInput", () => {
     for (const p of [GUIDE_PROMPT, ORGANIZE_PROMPT]) {
       expect(p).toContain("Never write a full sentence as a label");
       expect(p).toContain("kind=\"entity\"");
+      expect(p).toContain("Prefer depth over stars");
+      expect(p).toContain("remove_edges");
     }
     expect(ORGANIZE_PROMPT).toContain("No cards with kind \"question\"");
     expect(GUIDE_PROMPT).toContain("At most 3 of your own cards per turn");

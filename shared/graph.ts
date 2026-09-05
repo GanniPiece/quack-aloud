@@ -85,6 +85,13 @@ export interface Graph {
   updatedAt: number;
 }
 
+/** Relation labels that mean "child -> parent" in a hierarchy, in English and Chinese. */
+const HIERARCHY_LABEL = /\b(kind|type|sort|part|member|instance|example|subtype|category)s? of\b|\bbelongs? to\b|\bis an?\b|是一種|是一個|屬於|一種|例子|分類|種類|類型|子類|成員|之一/i;
+
+export function isHierarchyEdge(e: { label?: string }): boolean {
+  return !!e.label && HIERARCHY_LABEL.test(e.label);
+}
+
 export const NODE_W = 220;
 /** Nominal card height; CSS clamps label and detail so real cards stay close to this. */
 export const NODE_H = 120;

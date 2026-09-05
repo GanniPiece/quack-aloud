@@ -184,6 +184,13 @@ export function applyThinkResult(
   }
 
   // 4. Edges (inferred relations are allowed in both modes; they are structure, not advice).
+  //    Removals first, so a link can be re-routed through a new intermediate card in one turn.
+  for (const r of result.remove_edges) {
+    const source = idMap.get(r.source) ?? r.source;
+    const target = idMap.get(r.target) ?? r.target;
+    const i = edges.findIndex((x) => x.source === source && x.target === target);
+    if (i >= 0) edges.splice(i, 1);
+  }
   for (const e of result.edges) {
     const source = idMap.get(e.source) ?? e.source;
     const target = idMap.get(e.target) ?? e.target;

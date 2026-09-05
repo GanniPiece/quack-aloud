@@ -42,10 +42,13 @@ export const ThinkOutputSchema = z.object({
     z.object({
       source: z.string(),
       target: z.string(),
-      label: z.string().nullable().describe("The verb or relation, 1–4 words, e.g. says, saw, doesn't believe, in, causes"),
+      label: z.string().nullable().describe("The verb or relation, 1–4 words, e.g. says, saw, doesn't believe, in, causes, kind of, part of"),
       origin: z.enum(["user", "ai"]),
     }),
   ),
+  remove_edges: z
+    .array(z.object({ source: z.string(), target: z.string() }))
+    .describe("Existing links to drop, e.g. direct links replaced by an intermediate concept"),
 });
 
 export type ThinkOutput = z.infer<typeof ThinkOutputSchema>;
