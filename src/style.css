@@ -131,6 +131,10 @@ body { background: var(--bg); }
 }
 .thought.user { background: var(--user); border: 2px solid var(--user-border); }
 .thought.ai { background: var(--ai); border: 2px dashed var(--ai-border); }
+/* a challenge is the duck disagreeing: warm, not blue */
+.thought.ai.challenge { background: #fbe9e4; border-color: #d9775f; }
+.thought.ai.challenge .badge { color: #8a3a26; }
+.thought.ai.challenge .thought-label::before { content: "!"; display: inline-block; margin-right: 6px; width: 16px; height: 16px; border-radius: 50%; text-align: center; font-size: 11px; line-height: 16px; background: #d9775f; color: #fff; }
 .thought.selected { box-shadow: 0 0 0 3px rgba(226, 185, 59, 0.45); }
 .thought.fresh { animation: pop 0.5s ease-out, glow 6s ease-out; }
 @keyframes pop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }

@@ -43,6 +43,9 @@ describe("buildThinkInput", () => {
       expect(p).toContain("kind=\"entity\"");
     }
     expect(ORGANIZE_PROMPT).toContain("No cards with kind \"question\"");
-    expect(GUIDE_PROMPT).toContain("At most 3 per turn");
+    expect(GUIDE_PROMPT).toContain("At most 3 of your own cards per turn");
+    expect(GUIDE_PROMPT).toContain('kind="challenge"');
+    expect(GUIDE_PROMPT).toContain("Do not soften a real doubt");
+    expect(ORGANIZE_PROMPT).toContain('"challenge"');
   });
 });

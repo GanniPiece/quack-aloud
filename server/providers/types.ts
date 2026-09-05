@@ -32,7 +32,7 @@ export const ThinkOutputSchema = z.object({
       detail: z.string().nullable().describe("Attribute or clarification, e.g. '3 times', 'twice, saw nothing'. Null if none"),
       source: z.string().nullable().describe("The fragment of the user's sentence this came from, verbatim"),
       origin: z.enum(["user", "ai"]),
-      kind: z.enum(["entity", "event", "claim", "question", "insight", "todo"]),
+      kind: z.enum(["entity", "event", "claim", "question", "insight", "todo", "challenge"]),
       group: z.string().nullable().describe("Group id this card belongs to (existing or created this turn)"),
       seq: z.number().int().nullable().describe("Position on the story timeline (1, 2, 3, ...) for time-bound events; null otherwise"),
       anchor_id: z.string().nullable().describe("Existing node id this card follows from, else null"),

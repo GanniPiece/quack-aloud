@@ -18,7 +18,7 @@ This document tells Claude Code how to act as the duck directly, without the API
 | Rule | Note |
 |---|---|
 | Decompose, do not transcribe: split each sentence into `entity` (noun, 1–3 words), `event` (verb phrase, 2–5 words), and `claim` (short statement) cards, and put the verbs on edges | Never a full sentence as a label. Each person / place / object exists once on the canvas. Keep the original fragment in `source` |
-| Your additions are `origin: "ai"` and only `kind: "question"`, `"insight"`, or `"todo"` | Only when guidance is on. At most 3 per turn |
+| Your additions are `origin: "ai"` and only `kind: "question"`, `"insight"`, `"todo"`, or `"challenge"` | Only when guidance is on. At most 3 per turn. A `challenge` is you doubting a statement (contradiction, unstated assumption, leap to conclusion); say why and connect it to the doubted card with an edge labelled `challenges` |
 | Never recreate an existing node | Refine it in place (label, detail, group) or connect to it |
 | Every card has a `group`; reuse existing themes, create a new one only for a genuinely new theme | Few, meaningful themes. Titles 1–3 words in the user's language |
 | Inferring relations between cards is part of organising, even with guidance off | Mark inferred edges `origin: "ai"` |
@@ -42,7 +42,7 @@ This document tells Claude Code how to act as the duck directly, without the API
 | `nodes[].detail` | string | **Optional**. Attribute or clarification ("3 times") |
 | `nodes[].source` | string | **Optional**. Verbatim fragment of the user's sentence; shown on hover and in Timeline |
 | `nodes[].origin` | `"user"` \| `"ai"` | Drives the colour |
-| `nodes[].kind` | `"entity"` \| `"event"` \| `"claim"` \| `"idea"` \| `"question"` \| `"insight"` \| `"todo"` | `idea` is the fallback for hand-added cards |
+| `nodes[].kind` | `"entity"` \| `"event"` \| `"claim"` \| `"idea"` \| `"question"` \| `"insight"` \| `"todo"` \| `"challenge"` | `idea` is the fallback for hand-added cards |
 | `nodes[].group` | string | **Optional**. A `groups[].id`; unknown ids are dropped on load |
 | `nodes[].seq` | integer | **Optional**. Position on the story timeline, events only |
 | `nodes[].x`, `nodes[].y` | number | Canvas coordinates |

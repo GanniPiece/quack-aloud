@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  DUCK_KINDS,
   emptyGraph,
   GAP_X,
   GAP_Y,
@@ -21,7 +22,7 @@ export const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR
 export const GRAPH_PATH = path.join(DATA_DIR, "graph.json");
 
 const ORIGINS: Origin[] = ["user", "ai"];
-const KINDS: NodeKind[] = ["entity", "event", "claim", "idea", "question", "insight", "todo"];
+const KINDS: NodeKind[] = ["entity", "event", "claim", "idea", "question", "insight", "todo", "challenge"];
 const LAYOUTS: LayoutKind[] = ["themes", "layered", "timeline", "mindmap"];
 const asLayout = (v: unknown): LayoutKind | undefined => (LAYOUTS.includes(v as LayoutKind) ? (v as LayoutKind) : undefined);
 
@@ -120,7 +121,7 @@ export function normalize(input: unknown): Graph {
 // ---------- Merge model output into the canvas ----------
 
 export interface ApplyOptions {
-  /** When false, cards of kind question/insight/todo are dropped and the reply must stay opinion-free. */
+  /** When false, the duck's own card kinds (question/insight/todo/challenge) are dropped and the reply stays opinion-free. */
   guide: boolean;
 }
 
@@ -179,7 +180,6 @@ export function applyThinkResult(
   }
 
   // 3. New cards. Organise-only mode keeps just the user's ideas.
-  const DUCK_KINDS: NodeKind[] = ["question", "insight", "todo"];
   const wantedNodes = guide
     ? result.nodes
     : result.nodes.filter((n) => n.origin === "user" && !DUCK_KINDS.includes(n.kind));

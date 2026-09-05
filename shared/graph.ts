@@ -7,9 +7,13 @@ export type Origin = "user" | "ai";
  * - event: something that happened or was done
  * - claim: something someone believes, says, or assumes
  * - idea: fallback for hand-added or unclassified cards
- * - question / insight / todo: the duck's own cards (guidance on)
+ * - question / insight / todo / challenge: the duck's own cards (guidance on);
+ *   a challenge is the duck pushing back on something it doubts
  */
-export type NodeKind = "entity" | "event" | "claim" | "idea" | "question" | "insight" | "todo";
+export type NodeKind = "entity" | "event" | "claim" | "idea" | "question" | "insight" | "todo" | "challenge";
+
+/** Kinds only the duck creates; dropped when guidance is off. */
+export const DUCK_KINDS: NodeKind[] = ["question", "insight", "todo", "challenge"];
 
 /**
  * How the canvas is arranged:
@@ -96,6 +100,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   question: "question",
   insight: "insight",
   todo: "to verify",
+  challenge: "challenge",
 };
 
 export function emptyGraph(): Graph {

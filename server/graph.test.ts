@@ -182,6 +182,7 @@ describe("applyThinkResult", () => {
           { id: "bob", label: "Bob", detail: null, source: null, origin: "user", kind: "entity", group: "people", seq: null, anchor_id: null },
           { id: "q", label: "Why?", detail: null, source: null, origin: "ai", kind: "question", group: "people", seq: null, anchor_id: null },
           { id: "todo", label: "check", detail: null, source: null, origin: "user", kind: "todo", group: "people", seq: null, anchor_id: null },
+          { id: "doubt", label: "Really?", detail: null, source: null, origin: "ai", kind: "challenge", group: "people", seq: null, anchor_id: null },
         ],
       }),
       { guide: false },
@@ -196,13 +197,20 @@ describe("applyThinkResult", () => {
     expect(g.messages.at(-1)!.content).toBe("Filed nothing new.");
   });
 
-  it("guide mode keeps question cards", () => {
+  it("guide mode keeps question and challenge cards", () => {
     const g = applyThinkResult(
       base(),
       "x",
-      output({ nodes: [{ id: "q", label: "Why?", detail: null, source: null, origin: "ai", kind: "question", group: "people", seq: null, anchor_id: "alice" }] }),
+      output({
+        nodes: [
+          { id: "q", label: "Why?", detail: null, source: null, origin: "ai", kind: "question", group: "people", seq: null, anchor_id: "alice" },
+          { id: "doubt", label: "Alice never saw it", detail: "she only heard", source: null, origin: "ai", kind: "challenge", group: "people", seq: null, anchor_id: "alice" },
+        ],
+        edges: [{ source: "doubt", target: "alice", label: "challenges", origin: "ai" }],
+      }),
       { guide: true },
     );
-    expect(g.nodes.map((n) => n.kind)).toEqual(["entity", "question"]);
+    expect(g.nodes.map((n) => n.kind)).toEqual(["entity", "question", "challenge"]);
+    expect(g.edges).toEqual([{ id: "e-doubt-alice", source: "doubt", target: "alice", label: "challenges", origin: "ai" }]);
   });
 });

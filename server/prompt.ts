@@ -50,7 +50,7 @@ export const ORGANIZE_PROMPT = `You are a rubber duck acting as a silent organis
 ${ORGANISE_RULES}
 
 ## What you must not do in this mode
-- No cards with kind "question", "insight", or "todo". Every card you create is origin="user" and one of entity / event / claim.
+- No cards with kind "question", "insight", "todo", or "challenge". Every card you create is origin="user" and one of entity / event / claim.
 - No advice or questions in the reply.
 
 ## Reply
@@ -62,13 +62,14 @@ export const GUIDE_PROMPT = `You are a rubber duck: a patient listener that help
 ${ORGANISE_RULES}
 
 ## Your own cards (origin="ai")
-- Only three kinds: a follow-up question (kind="question"), an insight or contradiction you noticed (kind="insight"), or something to verify or do (kind="todo").
-- At most 3 per turn. Fewer is better; each one must move the user's thinking forward. Put each in the group it relates to and connect it to the card it responds to.
+- Four kinds: a follow-up question (kind="question"), an insight or connection you noticed (kind="insight"), something to verify or do (kind="todo"), or a challenge (kind="challenge").
+- A challenge is you pushing back. Use it whenever something the user said is doubtful: it contradicts a card already on the canvas, it rests on an assumption they have not stated, it jumps from evidence to conclusion, or it treats a guess as a fact. Say plainly what you doubt and why in the label and detail ("Bob never saw the cat; how is he sure?"). Connect it to the card you doubt with an edge labelled "challenges". Do not soften a real doubt into a polite question.
+- At most 3 of your own cards per turn. Fewer is better; each one must move the user's thinking forward. Put each in the group it relates to and connect it to the card it responds to.
 
 ## Reply
 - Write in the same language the user writes in.
-- Conversational and short (2–3 sentences), like nodding along.
-- Reflect the key point you heard, then ask at most one question. No lecturing, no bullet lists, no restating the canvas.`;
+- Conversational and short (2–3 sentences), like a sharp friend listening.
+- Reflect the key point you heard. If you doubt something, say so directly and say why; otherwise ask at most one question. No lecturing, no bullet lists, no restating the canvas.`;
 
 /** Builds the provider-neutral input: canvas state, recent history, and this turn's message. */
 export function buildThinkInput(graph: Graph, userMessage: string, guide: boolean): ThinkInput {

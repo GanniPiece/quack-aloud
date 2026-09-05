@@ -34,7 +34,7 @@ export function ChatPanel({ messages, busy, error, disabledReason, guide, onGuid
         <button className="collapse" onClick={onCollapse} title="Hide the chat panel" aria-label="Hide the chat panel">
           ‹
         </button>
-        <label className="toggle" title={guide ? "The duck files your ideas and adds questions and observations" : "The duck only files what you say; no opinions"}>
+        <label className="toggle" title={guide ? "The duck files your ideas, asks questions, and pushes back on what it doubts" : "The duck only files what you say; no opinions"}>
           <input type="checkbox" checked={guide} onChange={(e) => onGuideChange(e.target.checked)} />
           <span className="toggle-track" aria-hidden="true">
             <span className="toggle-thumb" />
@@ -43,7 +43,7 @@ export function ChatPanel({ messages, busy, error, disabledReason, guide, onGuid
             AI guidance <b>{guide ? "on" : "off"}</b>
           </span>
         </label>
-        <span className="chat-mode">{guide ? "Files your ideas, then asks and observes" : "Files your ideas only"}</span>
+        <span className="chat-mode">{guide ? "Files your ideas, then asks, observes, and pushes back" : "Files your ideas only"}</span>
       </div>
       <div className="chat-list" ref={listRef}>
         {messages.length === 0 && (
@@ -52,7 +52,7 @@ export function ChatPanel({ messages, busy, error, disabledReason, guide, onGuid
             <p>Explain what you're thinking to the duck, one piece at a time.</p>
             <p>
               {guide
-                ? "It maps what you say onto the canvas, then adds its own questions and observations."
+                ? "It maps what you say onto the canvas, then adds questions, observations, and challenges to anything it doubts."
                 : "It files what you say as cards on the canvas. Turn on AI guidance if you want it to weigh in."}
             </p>
           </div>
