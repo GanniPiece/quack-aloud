@@ -1,0 +1,113 @@
+import fs from "node:fs";
+import path from "node:path";
+import { emptyGraph, type Graph } from "../shared/graph";
+import { DATA_DIR, normalize } from "./graph";
+
+export const PROJECTS_DIR = path.join(DATA_DIR, "projects");
+const LEGACY_GRAPH = path.join(DATA_DIR, "graph.json");
+const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+export const DEFAULT_NAME = "Untitled project";
+
+export interface ProjectInfo {
+  id: string;
+  name: string;
+  updatedAt: number;
+  nodeCount: number;
+}
+
+export function isValidId(id: unknown): id is string {
+  return typeof id === "string" && ID_RE.test(id);
+}
+
+export function projectPath(id: string): string {
+  if (!isValidId(id)) throw new Error(`Invalid project id "${id}"`);
+  return path.join(PROJECTS_DIR, `${id}.json`);
+}
+
+/** First run on an older data folder: turn data/graph.json into the first project. */
+export function ensureMigrated(): void {
+  fs.mkdirSync(PROJECTS_DIR, { recursive: true });
+  if (!fs.existsSync(LEGACY_GRAPH)) return;
+  try {
+    const graph = normalize(JSON.parse(fs.readFileSync(LEGACY_GRAPH, "utf8")));
+    const id = uniqueId("my-project");
+    writeGraph(id, { ...graph, name: graph.name ?? "My project" });
+    fs.renameSync(LEGACY_GRAPH, `${LEGACY_GRAPH}.migrated`);
+    console.log(`[projects] moved data/graph.json into projects/${id}.json`);
+  } catch (err) {
+    console.warn("[projects] could not migrate data/graph.json:", (err as Error).message);
+  }
+}
+
+export function listProjects(): ProjectInfo[] {
+  fs.mkdirSync(PROJECTS_DIR, { recursive: true });
+  const out: ProjectInfo[] = [];
+  for (const file of fs.readdirSync(PROJECTS_DIR)) {
+    if (!file.endsWith(".json")) continue;
+    const id = file.slice(0, -5);
+    if (!isValidId(id)) continue;
+    try {
+      const g = normalize(JSON.parse(fs.readFileSync(path.join(PROJECTS_DIR, file), "utf8")));
+      out.push({ id, name: g.name ?? DEFAULT_NAME, updatedAt: g.updatedAt, nodeCount: g.nodes.length });
+    } catch {
+      // half-written or broken file: skip it for now
+    }
+  }
+  return out.sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export function loadProject(id: string): Graph | null {
+  const file = projectPath(id);
+  if (!fs.existsSync(file)) return null;
+  return normalize(JSON.parse(fs.readFileSync(file, "utf8")));
+}
+
+/** Writes atomically and stamps updatedAt. */
+export function saveProject(id: string, graph: Graph): Graph {
+  return writeGraph(id, graph);
+}
+
+export function createProject(name: string, graph: Graph = emptyGraph()): { id: string; graph: Graph } {
+  const cleanName = name.trim() || DEFAULT_NAME;
+  const id = uniqueId(slugify(cleanName) || "project");
+  const saved = writeGraph(id, { ...graph, name: cleanName });
+  return { id, graph: saved };
+}
+
+export function renameProject(id: string, name: string): Graph | null {
+  const g = loadProject(id);
+  if (!g) return null;
+  return writeGraph(id, { ...g, name: name.trim() || DEFAULT_NAME });
+}
+
+export function deleteProject(id: string): boolean {
+  const file = projectPath(id);
+  if (!fs.existsSync(file)) return false;
+  fs.rmSync(file);
+  return true;
+}
+
+function writeGraph(id: string, graph: Graph): Graph {
+  const next: Graph = { ...normalize(graph), updatedAt: Date.now() };
+  fs.mkdirSync(PROJECTS_DIR, { recursive: true });
+  const file = projectPath(id);
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + "\n");
+  fs.renameSync(tmp, file);
+  return next;
+}
+
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+function uniqueId(base: string): string {
+  fs.mkdirSync(PROJECTS_DIR, { recursive: true });
+  let id = base;
+  for (let i = 2; fs.existsSync(path.join(PROJECTS_DIR, `${id}.json`)); i++) id = `${base}-${i}`;
+  return id;
+}

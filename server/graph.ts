@@ -1,8 +1,6 @@
-import fs from "node:fs";
 import path from "node:path";
 import {
   DUCK_KINDS,
-  emptyGraph,
   GAP_X,
   GAP_Y,
   NODE_H,
@@ -19,38 +17,12 @@ import type { ThinkOutput } from "./providers/types";
 
 /** Where graph.json lives. DATA_DIR env overrides it (tests, or a shared folder). */
 export const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.resolve(process.cwd(), "data");
-export const GRAPH_PATH = path.join(DATA_DIR, "graph.json");
-
 const ORIGINS: Origin[] = ["user", "ai"];
 const KINDS: NodeKind[] = ["entity", "event", "claim", "idea", "question", "insight", "todo", "challenge"];
 const LAYOUTS: LayoutKind[] = ["themes", "layered", "timeline", "mindmap"];
 const asLayout = (v: unknown): LayoutKind | undefined => (LAYOUTS.includes(v as LayoutKind) ? (v as LayoutKind) : undefined);
 
-export function loadGraph(): Graph {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(GRAPH_PATH, "utf8");
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      const g = emptyGraph();
-      saveGraph(g);
-      return g;
-    }
-    throw err;
-  }
-  return normalize(JSON.parse(raw));
-}
-
-export function saveGraph(graph: Graph): Graph {
-  const next: Graph = { ...normalize(graph), updatedAt: Date.now() };
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = `${GRAPH_PATH}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + "\n");
-  fs.renameSync(tmp, GRAPH_PATH);
-  return next;
-}
-
-/** Fill in missing fields and drop bad entries so a hand-edited graph.json still loads. */
+/** Fill in missing fields and drop bad entries so a hand-edited project file still loads. */
 export function normalize(input: unknown): Graph {
   const g = (input ?? {}) as Partial<Graph>;
 
@@ -107,6 +79,7 @@ export function normalize(input: unknown): Graph {
 
   return {
     version: 1,
+    name: typeof g.name === "string" && g.name.trim() ? g.name.trim() : undefined,
     layout: asLayout(g.layout),
     suggestedLayout: asLayout(g.suggestedLayout),
     root: typeof g.root === "string" && seen.has(g.root) ? g.root : undefined,

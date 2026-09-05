@@ -25,7 +25,6 @@ body { background: var(--bg); }
   padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
 }
 .topbar .title { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 17px; }
-.topbar .sub { color: var(--muted); font-size: 13px; }
 .topbar .spacer { flex: 1; }
 .pill {
   font-size: 12px; padding: 3px 10px; border-radius: 999px;
@@ -38,6 +37,16 @@ body { background: var(--bg); }
   background: #fff; border: 1px solid var(--line); color: var(--text);
 }
 .topbar .ghost:hover { border-color: var(--accent); }
+.topbar .ghost.danger { border-color: var(--danger); color: #fff; background: var(--danger); }
+
+/* ---------- project switcher ---------- */
+.project-switcher { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
+.project-select, .project-name {
+  font: inherit; font-size: 13px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line);
+  background: #fff; color: var(--text); max-width: 260px;
+}
+.project-name { min-width: 200px; outline: none; }
+.project-name:focus { border-color: var(--accent); }
 
 .body { flex: 1; display: grid; grid-template-columns: 380px 1fr; min-height: 0; }
 .body.chat-closed { grid-template-columns: 1fr; }

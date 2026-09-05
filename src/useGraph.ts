@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { graphSignature, type Graph } from "../shared/graph";
-import { ConflictError, api } from "./api";
+import { ConflictError, api, type ProjectInfo } from "./api";
 
 const PERSIST_DEBOUNCE_MS = 400;
 
 /**
- * Single source of truth for the graph.
- * - Receives server broadcasts over SSE (API results, Claude Code edits, or our own saves)
+ * Single source of truth for the current project's graph, plus the live project list.
+ * - One SSE connection: "graph" events for the selected project, "projects" events for the list
  * - Local changes go through update(); an effect then debounces a PUT back to the server
  *   (persistence lives in an effect, never inside the state updater, because React may
  *   replay updaters in dev and during hot reload)
@@ -14,37 +14,52 @@ const PERSIST_DEBOUNCE_MS = 400;
  * - Every PUT carries the signature of the last server version we saw; if the server has
  *   moved on it answers 409 and we adopt its version instead of overwriting it
  */
-export function useGraph(onConflict?: (message: string) => void) {
+export function useGraph(project: string | null, onConflict?: (message: string) => void) {
   const [graph, setGraph] = useState<Graph | null>(null);
+  const [projects, setProjects] = useState<ProjectInfo[] | null>(null);
   const [connected, setConnected] = useState(false);
   const recentlySent = useRef<string[]>([]);
   const baseSig = useRef<string>("");
   const dirty = useRef(false);
   const pending = useRef<Graph | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const projectRef = useRef(project);
+  projectRef.current = project;
 
   useEffect(() => {
-    const es = new EventSource("/api/events");
+    // Switching projects: drop the old canvas and any unsaved debounced change for it
+    clearTimeout(timer.current);
+    pending.current = null;
+    dirty.current = false;
+    recentlySent.current = [];
+    baseSig.current = "";
+    setGraph(null);
+
+    const url = project ? `/api/events?project=${encodeURIComponent(project)}` : "/api/events";
+    const es = new EventSource(url);
     es.onopen = () => setConnected(true);
     es.onerror = () => setConnected(false);
-    es.onmessage = (ev) => {
-      const incoming = JSON.parse(ev.data) as Graph;
+    es.addEventListener("projects", (ev) => setProjects(JSON.parse((ev as MessageEvent).data) as ProjectInfo[]));
+    es.addEventListener("graph", (ev) => {
+      const { project: id, graph: incoming } = JSON.parse((ev as MessageEvent).data) as { project: string; graph: Graph };
+      if (id !== projectRef.current) return;
       const sig = graphSignature(incoming);
       baseSig.current = sig; // whatever the server holds now is our new base, echo or not
       if (recentlySent.current.includes(sig)) return;
       setGraph((prev) => (prev && graphSignature(prev) === sig ? prev : incoming));
-    };
+    });
     return () => es.close();
-  }, []);
+  }, [project]);
 
   const flush = useCallback(() => {
     const g = pending.current;
+    const id = projectRef.current;
     pending.current = null;
-    if (!g) return;
+    if (!g || !id) return;
     const sig = graphSignature(g);
     recentlySent.current = [...recentlySent.current.slice(-4), sig];
     api
-      .putGraph(g, baseSig.current)
+      .putGraph(id, g, baseSig.current)
       .then(() => {
         baseSig.current = sig;
       })
@@ -81,5 +96,5 @@ export function useGraph(onConflict?: (message: string) => void) {
     setGraph(g);
   }, []);
 
-  return { graph, connected, update, adopt };
+  return { graph, projects, connected, update, adopt };
 }

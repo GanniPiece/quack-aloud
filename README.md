@@ -11,8 +11,8 @@ Not in this document:
 
 | Piece | What it does | Note |
 |---|---|---|
-| `data/graph.json` | The whole state: nodes, edges, chat history | Single source of truth. Every writer (chat API, browser edits, Claude Code, a text editor) writes this file |
-| `server/` | Express API on `API_PORT` | Watches `data/` and pushes every change to browsers over SSE (`/api/events`) |
+| `data/projects/<id>.json` | One file per project: name, themes, cards, relations, chat history, layout | Single source of truth. Every writer (chat API, browser edits, Claude Code, a text editor) writes these files. An older `data/graph.json` is moved into the first project on startup |
+| `server/` | Express API on `API_PORT` | Watches `data/projects/` and pushes every change to browsers over SSE (`/api/events`) |
 | `server/providers/` | LLM backends | Swappable via `PROVIDER`. Only `claude` is implemented |
 | `src/` | Vite + React + React Flow UI | Chat on the left, canvas on the right |
 
@@ -26,7 +26,7 @@ Not in this document:
 6. Type something like "The home page loads slowly, I think it's the database" and press Enter. You should see two yellow cards inside a tinted theme container, an edge between them, and a one-line reply saying what was filed
 7. Switch on **AI guidance** (top of the chat) and send another thought. You should now also see one or two dashed blue cards from the duck and a short conversational reply
 
-To try the canvas without an API key: `cp data/sample-graph.json data/graph.json` while the app is running. The canvas updates on its own.
+To try the canvas without an API key, use "Import" (top right of the canvas) on `data/sample-graph.json`; it becomes a new project.
 
 ## Configuration (`.env`)
 
@@ -37,6 +37,14 @@ To try the canvas without an API key: `cp data/sample-graph.json data/graph.json
 | `CLAUDE_MODEL` | `claude-opus-5` | **Optional** |
 | `CLAUDE_EFFORT` | `medium` | **Optional**. `low` / `medium` / `high` / `xhigh` / `max`. Higher is slower and costs more |
 | `API_PORT` | `8787` | **Optional**. The Vite dev server proxies `/api` to this port |
+
+## Projects
+
+| Control | Where | What it does | Note |
+|---|---|---|---|
+| Project picker | Top bar, next to the title | Switch between projects. Each project is its own canvas and chat | The last opened project is remembered per browser |
+| + New project… | Last entry of the picker | Type a name, Enter | Starts empty |
+| Rename / Delete | Next to the picker | Rename inline; Delete asks once, inline | Deleting a project removes its file. Export first if you want a copy |
 
 ## Modes and views
 
@@ -58,9 +66,9 @@ To try the canvas without an API key: `cp data/sample-graph.json data/graph.json
 | Pan / zoom | Scroll or pinch to zoom around the cursor; hold Space and drag, or middle- or right-drag, to pan |
 | Delete | Select, then Backspace or Delete |
 | Re-lay out everything | "Tidy" (top right), in the current layout |
-| Save a copy | "Export" (top right). Downloads the whole canvas, chat included, as `rubber-duck-<date>.json` |
-| Load a copy | "Import" (top right). Replaces the current canvas with an exported file, after a confirmation. Any valid `graph.json` works, including one written by hand |
-| Start over | "Clear" (top right), then confirm with "Really clear everything?" |
+| Save a copy | "Export" (top right). Downloads the current project, chat included, as `rubber-duck-<project>-<date>.json` |
+| Load a copy | "Import" (top right). Creates a new project from an exported file and switches to it; nothing is overwritten. Any valid project file works, including one written by hand |
+| Start over | "Clear" (top right), then confirm with "Really clear everything?". Empties the current project but keeps it |
 | Hide the chat | "Hide chat" in the top bar, or the ‹ button on the chat panel. The canvas takes the full width; the choice is remembered per browser |
 
 | Visual | Meaning |
@@ -97,4 +105,5 @@ The prompt itself lives in `server/prompt.ts` and is shared by all providers.
 |---|---|---|
 | Chat says "No credentials for provider" | `.env` missing or key empty | Fill in `ANTHROPIC_API_KEY`, restart `npm run dev` |
 | Top-right pill says "disconnected" | API server not running or on a different port | Check the `[server]` lines in the terminal; match `API_PORT` |
-| Canvas empty after editing `graph.json` by hand | Invalid JSON, or nodes missing `id` / `label` | The server skips unreadable files and drops bad entries; fix the JSON and save again |
+| Canvas empty after editing a project file by hand | Invalid JSON, or nodes missing `id` / `label` | The server skips unreadable files and drops bad entries; fix the JSON and save again |
+| A project vanished from the picker | Its file was deleted or renamed to something other than `<id>.json` (lowercase letters, digits, dashes) | Put it back under `data/projects/` with a valid name |

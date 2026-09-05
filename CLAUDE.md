@@ -2,7 +2,7 @@
 
 > status: current
 
-This document tells Claude Code how to act as the duck directly, without the API. The browser watches `data/graph.json`; editing that file is enough to update the canvas live. Product overview and setup are in [README.md](README.md).
+This document tells Claude Code how to act as the duck directly, without the API. Each project is one file under `data/projects/<id>.json`; the browser watches that folder, so editing the file of the project the user has open is enough to update the canvas live. Product overview and setup are in [README.md](README.md).
 
 ## The Claude Code route
 
@@ -10,7 +10,7 @@ This document tells Claude Code how to act as the duck directly, without the API
 |---|---|---|
 | 1 | User runs `npm run dev` and opens http://localhost:5173 | No API key needed for this route |
 | 2 | User types their thoughts in the Claude Code chat, and says whether they want guidance | Always organise: cards, themes (`groups`), relations, refinements of existing cards. Only add question / insight / to-do cards when they ask for guidance |
-| 3 | Read `data/graph.json`, then rewrite it with the new nodes and edges | Follow the rules below. Write the whole file as valid JSON in one go; the watcher retries on a half-written file but the UI flickers |
+| 3 | Find the open project (`GET http://localhost:8787/api/projects`, or ask; the picker's tooltip shows the file path), read `data/projects/<id>.json`, then rewrite it with the new nodes and edges | Follow the rules below. Write the whole file as valid JSON in one go; the watcher retries on a half-written file but the UI flickers. To start a new project, create `data/projects/<slug>.json` with `{"version":1,"name":"…","groups":[],"nodes":[],"edges":[],"messages":[]}` |
 | 4 | Reply briefly in chat, the same way the duck would | 2–3 sentences, at most one question |
 
 ## Rules for what to add
@@ -27,11 +27,12 @@ This document tells Claude Code how to act as the duck directly, without the API
 | Set `suggestedLayout` to fit the content: `timeline` for stories and processes (and give events a `seq`), `mindmap` for knowledge around one concept (and set `root`), `layered` for cause/effect chains, `themes` otherwise | The browser re-arranges the canvas itself in every layout except `themes` |
 | Append the user's message and your reply to `messages` | Keeps the in-app chat in sync. Give the user message and the new nodes the same `createdAt` / `ts` so the Timeline view groups them as one turn |
 
-## `data/graph.json` schema
+## Project file schema (`data/projects/<id>.json`)
 
 | Field | Type | Note |
 |---|---|---|
 | `version` | `1` | |
+| `name` | string | Shown in the project picker |
 | `layout` | `"themes"` \| `"layered"` \| `"timeline"` \| `"mindmap"` | **Optional**. Pinned by the user; leave alone |
 | `suggestedLayout` | same values | **Optional**. Your suggestion; used when `layout` is unset |
 | `root` | string | **Optional**. Node id at the centre of the mind map |
@@ -62,4 +63,4 @@ Types are in `shared/graph.ts`; a worked example is `data/sample-graph.json`.
 |---|---|
 | LLM calls go through `ThinkProvider` in `server/providers/`; the prompt lives in `server/prompt.ts` | Never call an SDK from a route handler |
 | UI strings are English; no emoji | Use the `DuckIcon` SVG for the duck |
-| `data/graph.json` is user data | Do not commit personal canvases; `data/sample-graph.json` is the shareable example |
+| `data/projects/` is user data | Do not commit personal projects; `data/sample-graph.json` is the shareable example |

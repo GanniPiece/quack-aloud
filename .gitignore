@@ -4,5 +4,7 @@ dist
 *.log
 .DS_Store
 data/graph.json
+data/graph.json.migrated
+data/projects/
 data/backup-*.json
 .claude/

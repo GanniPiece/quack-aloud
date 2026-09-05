@@ -5,11 +5,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { emptyGraph, NODE_H, NODE_W, type Graph, type ThoughtNode } from "../shared/graph";
 import type { ThinkOutput } from "./providers/types";
 
-// Point the module at a scratch directory before it computes DATA_DIR
+// Point the modules at a scratch directory before they compute DATA_DIR
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "rubber-duck-test-"));
 process.env.DATA_DIR = tmp;
-const mod = await import("./graph");
-const { applyThinkResult, findFreeSpot, loadGraph, normalize, placeInGroup, saveGraph } = mod;
+const { applyThinkResult, findFreeSpot, normalize, placeInGroup } = await import("./graph");
+const { createProject, deleteProject, ensureMigrated, listProjects, loadProject, renameProject, saveProject } = await import("./projects");
 
 function node(id: string, extra: Partial<ThoughtNode> = {}): ThoughtNode {
   return { id, label: id, origin: "user", kind: "idea", x: 0, y: 0, createdAt: 1, ...extra };
@@ -58,21 +58,46 @@ describe("normalize", () => {
   });
 });
 
-describe("save/load round trip", () => {
-  beforeAll(() => fs.rmSync(path.join(tmp, "graph.json"), { force: true }));
+describe("project store", () => {
+  beforeAll(() => fs.rmSync(path.join(tmp, "projects"), { recursive: true, force: true }));
 
-  it("creates an empty graph when the file is missing", () => {
-    expect(loadGraph().nodes).toEqual([]);
-    expect(fs.existsSync(path.join(tmp, "graph.json"))).toBe(true);
+  it("migrates a legacy data/graph.json into the first project", () => {
+    fs.writeFileSync(path.join(tmp, "graph.json"), JSON.stringify({ ...emptyGraph(), nodes: [node("legacy")] }));
+    ensureMigrated();
+    expect(fs.existsSync(path.join(tmp, "graph.json"))).toBe(false);
+    const list = listProjects();
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ id: "my-project", name: "My project", nodeCount: 1 });
+    ensureMigrated(); // idempotent
+    expect(listProjects()).toHaveLength(1);
   });
 
-  it("persists what was saved and stamps updatedAt", () => {
+  it("creates, lists, renames, saves, and deletes projects", () => {
+    const { id, graph } = createProject("  Black cat  ");
+    expect(id).toBe("black-cat");
+    expect(graph.name).toBe("Black cat");
+    expect(createProject("Black cat").id).toBe("black-cat-2");
+    expect(createProject("   ").graph.name).toBe("Untitled project");
+
     const before = Date.now();
-    const saved = saveGraph({ ...emptyGraph(), nodes: [node("a", { detail: "d" })] });
+    const saved = saveProject(id, { ...graph, nodes: [node("a", { detail: "d" })] });
     expect(saved.updatedAt).toBeGreaterThanOrEqual(before);
-    const loaded = loadGraph();
-    expect(loaded.nodes).toEqual(saved.nodes);
-    expect(fs.existsSync(path.join(tmp, "graph.json.tmp"))).toBe(false);
+    expect(saved.name).toBe("Black cat");
+    expect(loadProject(id)!.nodes).toEqual(saved.nodes);
+    expect(fs.existsSync(path.join(tmp, "projects", `${id}.json.tmp`))).toBe(false);
+
+    expect(renameProject(id, "Cats")!.name).toBe("Cats");
+    expect(renameProject("nope", "x")).toBeNull();
+    expect(listProjects()[0]).toMatchObject({ id, name: "Cats", nodeCount: 1 }); // most recently saved first
+
+    expect(deleteProject(id)).toBe(true);
+    expect(deleteProject(id)).toBe(false);
+    expect(loadProject(id)).toBeNull();
+  });
+
+  it("rejects unsafe ids", () => {
+    expect(() => loadProject("../etc/passwd")).toThrow();
+    expect(() => loadProject("Has Spaces")).toThrow();
   });
 });
 

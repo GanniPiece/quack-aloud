@@ -70,6 +70,8 @@ export interface ChatMessage {
 
 export interface Graph {
   version: 1;
+  /** Project name. Each project is one file under data/projects/. */
+  name?: string;
   /** Layout pinned by the user; undefined = follow suggestedLayout */
   layout?: LayoutKind;
   /** Layout the duck thinks fits the content */
@@ -110,6 +112,7 @@ export function emptyGraph(): Graph {
 /** Content-only signature (ignores updatedAt and key order) for comparing two graphs. */
 export function graphSignature(g: Graph): string {
   return stableStringify({
+    name: g.name,
     layout: g.layout,
     suggestedLayout: g.suggestedLayout,
     root: g.root,
