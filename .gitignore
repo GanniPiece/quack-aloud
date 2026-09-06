@@ -7,5 +7,6 @@ data/graph.json
 data/graph.json.migrated
 data/projects/
 data/backup-*.json
-.claude/
+.claude/*
+!.claude/commands/
 data/trash/
