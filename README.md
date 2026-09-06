@@ -15,6 +15,7 @@ Not in this document:
 | `server/` | Express API on `API_PORT` | Watches `data/projects/` and pushes every change to browsers over SSE (`/api/events`) |
 | `server/providers/` | LLM backends | Swappable via `PROVIDER`. Only `claude` is implemented |
 | `src/` | Vite + React + React Flow UI | Chat on the left, canvas on the right |
+| `CLAUDE.md`, `.agents/` | Rules for coding agents that act as the duck without an API key | Claude Code reads `CLAUDE.md`; Google Antigravity reads `.agents/rules/rubber-duck.md` and gets a `/duck` workflow from `.agents/workflows/duck.md`. Run `npm run dev`, open the project in the browser, then type your thought to the agent (`/duck …` in Antigravity; add "guide" or "引導" for questions and challenges). It edits the project file and the canvas updates live, on the agent's own plan rather than a Gemini or Claude API key |
 
 ## Getting started
 
