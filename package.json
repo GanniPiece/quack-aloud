@@ -36,5 +36,6 @@
     "vitest": "^3.2.7"
   },
   "description": "Think out loud to a rubber duck that files your thoughts as cards on a canvas",
-  "license": "MIT"
+  "license": "MIT",
+  "author": "GanniPiece"
 }
