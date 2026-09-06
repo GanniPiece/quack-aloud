@@ -29,6 +29,20 @@ Not in this document:
 
 To try the canvas without an API key, use "Import" (top right of the canvas) on `data/sample-graph.json`; it becomes a new project.
 
+## Using a coding agent as the duck (no API key)
+
+Claude Code and Google Antigravity can play the duck by editing the open project file directly. The canvas and the in-app chat update live, and the cost is the agent's own plan, not an API key.
+
+| Step | Claude Code | Antigravity | Note |
+|---|---|---|---|
+| 1 | Open this folder in Claude Code (the Code tab in the Claude app, or `claude` in a terminal) | Open this folder as the workspace | Claude Code loads `CLAUDE.md`; Antigravity loads `.agents/rules/rubber-duck.md`. Both hold the same rules and file format |
+| 2 | `npm run dev` and open http://localhost:5173 | same | The agent finds the open project through `http://localhost:8787/api/projects` |
+| 3 | Type the thought, plainly or as `/duck <thought>` | `/duck <thought>` in the agent panel | `/duck` makes the intent explicit; a plain message in Claude Code works too. The command list is read when a session starts, so after cloning or pulling, start a new session before `/duck` shows up |
+| 4 | Add "guide", "引導", or "質疑" to the message for questions and challenges | same | Without it the agent only organises |
+| 5 | Say "new project: <name>" or "開新專案：<名稱>" to start a fresh canvas | same | The agent creates `data/projects/<slug>.json` and files the rest of the message there. Switch to it in the picker |
+
+Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
+
 ## Configuration (`.env`)
 
 | Key | Default | Note |
@@ -116,3 +130,5 @@ The prompt itself lives in `server/prompt.ts` and is shared by all providers.
 | Top-right pill says "disconnected" | API server not running or on a different port | Check the `[server]` lines in the terminal; match `API_PORT` |
 | Canvas empty after editing a project file by hand | Invalid JSON, or nodes missing `id` / `label` | The server skips unreadable files and drops bad entries; fix the JSON and save again |
 | A project vanished from the picker | Its file was deleted or renamed to something other than `<id>.json` (lowercase letters, digits, dashes) | Put it back under `data/projects/` with a valid name |
+| Claude Code says "Unknown command: /duck" | The session started before `.claude/commands/duck.md` existed; commands are read at session start | Start a new session, or type the thought without `/duck` (CLAUDE.md already tells Claude Code how to file it) |
+| `/duck` does nothing in Antigravity | `.agents/workflows/duck.md` not picked up | Check the folder is the workspace root; the older `.agent/` name is also accepted |
