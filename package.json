@@ -1,5 +1,5 @@
 {
-  "name": "rubber-duck-viz",
+  "name": "quack-aloud",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -34,5 +34,7 @@
     "typescript": "^5.8.2",
     "vite": "^6.2.1",
     "vitest": "^3.2.7"
-  }
+  },
+  "description": "Think out loud to a rubber duck that files your thoughts as cards on a canvas",
+  "license": "MIT"
 }

@@ -1,4 +1,4 @@
-# Rubber Duck: notes for Claude Code
+# Quack Aloud: notes for Claude Code
 
 > status: current
 

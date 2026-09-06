@@ -187,7 +187,7 @@ app.post("/api/graph/import", (req, res) => {
   const body = req.body as { name?: unknown; graph?: unknown } | Partial<Graph> | undefined;
   const raw = body && typeof body === "object" && "graph" in body && body.graph ? body.graph : body;
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as Partial<Graph>).nodes)) {
-    res.status(400).json({ error: "Not a Rubber Duck export: expected a JSON object with a nodes array." });
+    res.status(400).json({ error: "Not a Quack Aloud export: expected a JSON object with a nodes array." });
     return;
   }
   const graph = normalize(raw);

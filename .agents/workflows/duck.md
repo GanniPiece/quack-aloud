@@ -2,7 +2,7 @@
 description: Be the rubber duck. Read what the user said, file it as cards in the open project, reply in one breath.
 ---
 
-The text after `/duck` is what the user is thinking out loud. If it contains "guide", "引導", or "質疑", guidance is on for this turn; otherwise organise only. Follow the rules in `.agents/rules/rubber-duck.md` throughout.
+The text after `/duck` is what the user is thinking out loud. If it contains "guide", "引導", or "質疑", guidance is on for this turn; otherwise organise only. Follow the rules in `.agents/rules/quack-aloud.md` throughout.
 
 1. Pick the project. If the text asks for a new project ("new project", "新專案", "開新專案", "新的…專案"), create `data/projects/p-YYYYMMDD-HHMMSS.json` (current local time) with `{"version":1,"name":"<name>","groups":[],"nodes":[],"edges":[],"messages":[]}` and use it; tell the user to select it in the picker. Otherwise run `curl -s http://localhost:8787/api/projects` and take the first entry (sorted by last update). If the server is not running, tell the user to run `npm run dev` and stop. If there is more than one project and the intent is unclear, ask which one.
    If the message is only a project title with no thought to file, create the project, write one user message and one reply into `messages`, and stop.

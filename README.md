@@ -1,8 +1,8 @@
-# Rubber Duck
+# Quack Aloud
 
 > status: MVP, single user, local only
 
-Rubber Duck is a "rubber duck debugging" tool with a canvas. You describe your understanding of something in fragments in the chat; an LLM organises those fragments into cards, sorts them into themes, and draws the relations between them on an infinite canvas next to it. With **AI guidance** off that is all it does. With it on, the duck also adds its own questions and observations, marked as its own. This document is for anyone running or extending the app.
+Quack Aloud is a "rubber duck debugging" tool with a canvas. You describe your understanding of something in fragments in the chat; an LLM organises those fragments into cards, sorts them into themes, and draws the relations between them on an infinite canvas next to it. With **AI guidance** off that is all it does. With it on, the duck also adds its own questions and observations, marked as its own. This document is for anyone running or extending the app.
 
 Not in this document:
 - How Claude Code edits the canvas directly: see [CLAUDE.md](CLAUDE.md)
@@ -22,7 +22,7 @@ Not in this document:
 | `server/` | Express API on `API_PORT` | Watches `data/projects/` and pushes every change to browsers over SSE (`/api/events`) |
 | `server/providers/` | LLM backends | Swappable via `PROVIDER`. Only `claude` is implemented |
 | `src/` | Vite + React + React Flow UI | Chat on the left, canvas on the right |
-| `CLAUDE.md`, `.agents/` | Rules for coding agents that act as the duck without an API key | Claude Code reads `CLAUDE.md`; Google Antigravity reads `.agents/rules/rubber-duck.md` and gets a `/duck` workflow from `.agents/workflows/duck.md`. Run `npm run dev`, open the project in the browser, then type your thought to the agent (`/duck …` in either; plain text also works in Claude Code; add "guide" or "引導" for questions and challenges). It edits the project file and the canvas updates live, on the agent's own plan rather than a Gemini or Claude API key |
+| `CLAUDE.md`, `.agents/` | Rules for coding agents that act as the duck without an API key | Claude Code reads `CLAUDE.md`; Google Antigravity reads `.agents/rules/quack-aloud.md` and gets a `/duck` workflow from `.agents/workflows/duck.md`. Run `npm run dev`, open the project in the browser, then type your thought to the agent (`/duck …` in either; plain text also works in Claude Code; add "guide" or "引導" for questions and challenges). It edits the project file and the canvas updates live, on the agent's own plan rather than a Gemini or Claude API key |
 
 ## Getting started
 
@@ -42,7 +42,7 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 
 | Step | Claude Code | Antigravity | Note |
 |---|---|---|---|
-| 1 | Open this folder in Claude Code (the Code tab in the Claude app, or `claude` in a terminal) | Open this folder as the workspace | Claude Code loads `CLAUDE.md`; Antigravity loads `.agents/rules/rubber-duck.md`. Both hold the same rules and file format |
+| 1 | Open this folder in Claude Code (the Code tab in the Claude app, or `claude` in a terminal) | Open this folder as the workspace | Claude Code loads `CLAUDE.md`; Antigravity loads `.agents/rules/quack-aloud.md`. Both hold the same rules and file format |
 | 2 | `npm run dev` and open http://localhost:5173 | same | The agent finds the open project through `http://localhost:8787/api/projects` |
 | 3 | Type the thought, plainly or as `/duck <thought>` | `/duck <thought>` in the agent panel | `/duck` makes the intent explicit; a plain message in Claude Code works too. The command list is read when a session starts, so after cloning or pulling, start a new session before `/duck` shows up |
 | 4 | Add "guide", "引導", or "質疑" to the message for questions and challenges | same | Without it the agent only organises |
@@ -96,7 +96,7 @@ Both routes and the in-app chat write the same files, so they can be mixed. Avoi
 | Pan / zoom | Scroll or pinch to zoom around the cursor; hold Space and drag, or middle- or right-drag, to pan |
 | Delete | Select, then Backspace or Delete |
 | Re-lay out everything | "Tidy" (top right), in the current layout |
-| Save a copy | "Export" (top right). Downloads the current project, chat included, as `rubber-duck-<project>-<date>.json` |
+| Save a copy | "Export" (top right). Downloads the current project, chat included, as `quack-aloud-<project>-<date>.json` |
 | Load a copy | "Import" (top right). Creates a new project from an exported file and switches to it; nothing is overwritten. Any valid project file works, including one written by hand |
 | Start over | "Clear" (top right), then confirm with "Really clear everything?". Empties the current project but keeps it |
 | Hide the chat | "Hide chat" in the top bar, or the ‹ button on the chat panel. The canvas takes the full width; the choice is remembered per browser |
@@ -139,3 +139,7 @@ The prompt itself lives in `server/prompt.ts` and is shared by all providers.
 | A project vanished from the picker | Its file was deleted or renamed to something other than `<id>.json` (lowercase letters, digits, dashes) | Put it back under `data/projects/` with a valid name |
 | Claude Code says "Unknown command: /duck" | The session started before `.claude/commands/duck.md` existed; commands are read at session start | Start a new session, or type the thought without `/duck` (CLAUDE.md already tells Claude Code how to file it) |
 | `/duck` does nothing in Antigravity | `.agents/workflows/duck.md` not picked up | Check the folder is the workspace root; the older `.agent/` name is also accepted |
+
+## License
+
+MIT. See [LICENSE](LICENSE).

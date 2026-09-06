@@ -6,7 +6,7 @@ import { emptyGraph, NODE_H, NODE_W, type Graph, type ThoughtNode } from "../sha
 import type { ThinkOutput } from "./providers/types";
 
 // Point the modules at a scratch directory before they compute DATA_DIR
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "rubber-duck-test-"));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "quack-aloud-test-"));
 process.env.DATA_DIR = tmp;
 const { applyThinkResult, findFreeSpot, normalize, placeInGroup } = await import("./graph");
 const { createProject, deleteProject, ensureMigrated, ensureOneProject, listProjects, loadProject, renameProject, saveProject } = await import("./projects");

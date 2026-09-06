@@ -8,16 +8,18 @@ import { Timeline } from "./components/Timeline";
 import { useGraph } from "./useGraph";
 
 const FRESH_MS = 6000;
-const GUIDE_KEY = "rubberduck.guide";
-const CHAT_KEY = "rubberduck.chat";
-const VIEW_KEY = "rubberduck.view";
-const PROJECT_KEY = "rubberduck.project";
+const GUIDE_KEY = "quackaloud.guide";
+const CHAT_KEY = "quackaloud.chat";
+const VIEW_KEY = "quackaloud.view";
+const PROJECT_KEY = "quackaloud.project";
 
 type View = "map" | "timeline";
 
 function readSetting<T extends string>(key: string, fallback: T): T {
   try {
-    return (localStorage.getItem(key) as T | null) ?? fallback;
+    // settings written under the pre-release name are still honoured
+    const legacy = localStorage.getItem(key.replace(/^quackaloud\./, "rubberduck."));
+    return (localStorage.getItem(key) as T | null) ?? (legacy as T | null) ?? fallback;
   } catch {
     return fallback;
   }
@@ -194,7 +196,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `rubber-duck-${slug}-${stamp}.json`;
+    a.download = `quack-aloud-${slug}-${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -211,7 +213,7 @@ export default function App() {
         setNotice(`"${file.name}" is not valid JSON.`);
         return;
       }
-      const fallbackName = file.name.replace(/\.json$/i, "").replace(/^rubber-duck-/, "").replace(/-\d{8}-\d{4}$/, "") || "Imported project";
+      const fallbackName = file.name.replace(/\.json$/i, "").replace(/^(quack-aloud|rubber-duck)-/, "").replace(/-\d{8}-\d{4}$/, "") || "Imported project";
       const name = (data as { name?: unknown })?.name;
       try {
         const { id, graph: g } = await api.importGraph(typeof name === "string" && name ? name : fallbackName, data);
@@ -232,7 +234,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <span className="title"><DuckIcon size={26} /> Rubber Duck</span>
+        <span className="title"><DuckIcon size={26} /> Quack Aloud</span>
         <ProjectSwitcher
           projects={projects ?? []}
           current={project}

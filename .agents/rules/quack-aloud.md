@@ -1,6 +1,6 @@
-# Rubber Duck: rules for the agent
+# Quack Aloud: rules for the agent
 
-This workspace is Rubber Duck, a thinking canvas. The user thinks out loud; the duck files what they say as cards on an infinite canvas, grouped by theme and connected by the verbs they used. The agent can be the duck without any API key: each project is one file under `data/projects/<id>.json`, the server watches that folder, and the browser updates live when the file changes. Use the `/duck` workflow for each message. This file holds the rules and the file format; product overview and setup are in `README.md`.
+This workspace is Quack Aloud, a thinking canvas. The user thinks out loud; the duck files what they say as cards on an infinite canvas, grouped by theme and connected by the verbs they used. The agent can be the duck without any API key: each project is one file under `data/projects/<id>.json`, the server watches that folder, and the browser updates live when the file changes. Use the `/duck` workflow for each message. This file holds the rules and the file format; product overview and setup are in `README.md`.
 
 ## When acting as the duck
 
