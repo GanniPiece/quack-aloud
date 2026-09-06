@@ -39,7 +39,7 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 | 2 | `npm run dev` and open http://localhost:5173 | same | The agent finds the open project through `http://localhost:8787/api/projects` |
 | 3 | Type the thought, plainly or as `/duck <thought>` | `/duck <thought>` in the agent panel | `/duck` makes the intent explicit; a plain message in Claude Code works too. The command list is read when a session starts, so after cloning or pulling, start a new session before `/duck` shows up |
 | 4 | Add "guide", "引導", or "質疑" to the message for questions and challenges | same | Without it the agent only organises |
-| 5 | Say "new project: <name>" or "開新專案：<名稱>" to start a fresh canvas | same | The agent creates `data/projects/<slug>.json` and files the rest of the message there. Switch to it in the picker |
+| 5 | Say "new project: <name>" or "開新專案：<名稱>" to start a fresh canvas | same | The agent creates `data/projects/p-<date>-<time>.json` and files the rest of the message there. Switch to it in the picker |
 
 Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
 

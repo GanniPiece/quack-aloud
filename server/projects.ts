@@ -32,7 +32,7 @@ export function ensureMigrated(): void {
   if (!fs.existsSync(LEGACY_GRAPH)) return;
   try {
     const graph = normalize(JSON.parse(fs.readFileSync(LEGACY_GRAPH, "utf8")));
-    const id = uniqueId("my-project");
+    const id = uniqueId(newProjectId());
     writeGraph(id, { ...graph, name: graph.name ?? "My project" });
     fs.renameSync(LEGACY_GRAPH, `${LEGACY_GRAPH}.migrated`);
     console.log(`[projects] moved data/graph.json into projects/${id}.json`);
@@ -69,9 +69,15 @@ export function saveProject(id: string, graph: Graph): Graph {
   return writeGraph(id, graph);
 }
 
+/** Ids are timestamps (`p-20260905-153012`), so any name in any language works and files sort by creation. */
+export function newProjectId(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `p-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
 export function createProject(name: string, graph: Graph = emptyGraph()): { id: string; graph: Graph } {
   const cleanName = name.trim() || DEFAULT_NAME;
-  const id = uniqueId(slugify(cleanName) || "project");
+  const id = uniqueId(newProjectId());
   const saved = writeGraph(id, { ...graph, name: cleanName });
   return { id, graph: saved };
 }
@@ -112,14 +118,6 @@ function writeGraph(id: string, graph: Graph): Graph {
   fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + "\n");
   fs.renameSync(tmp, file);
   return next;
-}
-
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
 }
 
 function uniqueId(base: string): string {

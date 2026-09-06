@@ -67,16 +67,19 @@ describe("project store", () => {
     expect(fs.existsSync(path.join(tmp, "graph.json"))).toBe(false);
     const list = listProjects();
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatchObject({ id: "my-project", name: "My project", nodeCount: 1 });
+    expect(list[0]).toMatchObject({ name: "My project", nodeCount: 1 });
+    expect(list[0].id).toMatch(/^p-\d{8}-\d{6}(-\d+)?$/);
     ensureMigrated(); // idempotent
     expect(listProjects()).toHaveLength(1);
   });
 
   it("creates, lists, renames, saves, and deletes projects", () => {
     const { id, graph } = createProject("  Black cat  ");
-    expect(id).toBe("black-cat");
+    expect(id).toMatch(/^p-\d{8}-\d{6}(-\d+)?$/); // may carry a suffix when created in the same second as another
     expect(graph.name).toBe("Black cat");
-    expect(createProject("Black cat").id).toBe("black-cat-2");
+    const second = createProject("黑貓").id; // a non-Latin name gets the same kind of id
+    expect(second).toMatch(/^p-\d{8}-\d{6}(-\d+)?$/);
+    expect(second).not.toBe(id);
     expect(createProject("   ").graph.name).toBe("Untitled project");
 
     const before = Date.now();
@@ -90,7 +93,7 @@ describe("project store", () => {
     expect(renameProject("nope", "x")).toBeNull();
     expect(listProjects().find((p) => p.id === id)).toMatchObject({ name: "Cats", nodeCount: 1 });
 
-    expect(deleteProject(id)).toEqual({ deleted: true, replacement: undefined }); // "my-project" still exists
+    expect(deleteProject(id)).toEqual({ deleted: true, replacement: undefined }); // the migrated project still exists
     expect(deleteProject(id)).toEqual({ deleted: false });
     expect(loadProject(id)).toBeNull();
     const trashed = fs.readdirSync(path.join(tmp, "trash")).filter((f) => f.startsWith(`${id}-`));
@@ -98,7 +101,8 @@ describe("project store", () => {
   });
 
   it("deleting the last project moves it to trash and creates a fresh one", () => {
-    for (const p of listProjects()) if (p.id !== "my-project") deleteProject(p.id);
+    const keep = listProjects().find((p) => p.name === "My project")!.id;
+    for (const p of listProjects()) if (p.id !== keep) deleteProject(p.id);
     const before = listProjects();
     expect(before).toHaveLength(1);
     const result = deleteProject(before[0].id);
