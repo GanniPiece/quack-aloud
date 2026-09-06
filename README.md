@@ -2,6 +2,8 @@
 
 > status: MVP, single user, local only
 
+中文版：[README.zh-TW.md](README.zh-TW.md)
+
 Quack Aloud is a "rubber duck debugging" tool with a canvas. You describe your understanding of something in fragments in the chat; an LLM organises those fragments into cards, sorts them into themes, and draws the relations between them on an infinite canvas next to it. With **AI guidance** off that is all it does. With it on, the duck also adds its own questions and observations, marked as its own. This document is for anyone running or extending the app.
 
 Not in this document:
