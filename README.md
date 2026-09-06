@@ -7,6 +7,13 @@ Rubber Duck is a "rubber duck debugging" tool with a canvas. You describe your u
 Not in this document:
 - How Claude Code edits the canvas directly: see [CLAUDE.md](CLAUDE.md)
 
+## Demo
+
+| Scenario | What happens |
+|---|---|
+| ![Plotting a story with AI guidance on](docs/demo-novel.gif) | **Plotting a story** (guidance on). Three fragments of a mystery go in; the duck files people, events, and claims, picks the Timeline layout, and when the third message jumps from "she saw a cat" to "so he was telling the truth", it pushes back with a challenge card |
+| ![Learning a new topic, guidance off then on](docs/demo-learning.gif) | **Learning something new** (guidance off, then on). Notes about TOPS become a mind map with intermediate concepts; switching guidance on and stating "higher TOPS always means faster" earns a challenge about INT8 vs FP16 and memory bandwidth |
+
 ## How it works
 
 | Piece | What it does | Note |
