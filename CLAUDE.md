@@ -2,7 +2,7 @@
 
 > status: current
 
-This document tells Claude Code how to act as the duck directly, without the API. Each project is one file under `data/projects/<id>.json`; the browser watches that folder, so editing the file of the project the user has open is enough to update the canvas live. Product overview and setup are in [README.md](README.md).
+This document tells Claude Code how to act as the duck directly, without the API. A project is a folder `data/projects/<pid>/` holding `project.json` (its name) and one file per canvas `<cid>.json` (e.g. a novel with canvases "Concept", "Characters", "Chapter 1"). The browser watches that folder, so editing the file of the canvas the user has open is enough to update it live. Product overview and setup are in [README.md](README.md).
 
 ## The Claude Code route
 
@@ -10,7 +10,7 @@ This document tells Claude Code how to act as the duck directly, without the API
 |---|---|---|
 | 1 | User runs `npm run dev` and opens http://localhost:5173, or `docker compose up` and opens http://localhost:8787 | No API key needed for this route. Both serve the same `data/projects/` folder and the same `/api/projects` on port 8787 |
 | 2 | User types their thoughts in the Claude Code chat, plainly or as `/duck <thought>`, and says whether they want guidance | Always organise: cards, themes (`groups`), relations, refinements of existing cards. Only add question / insight / to-do cards when they ask for guidance |
-| 3 | Find the open project (`GET http://localhost:8787/api/projects`, or ask; the picker's tooltip shows the file path), read `data/projects/<id>.json`, then rewrite it with the new nodes and edges. If the user asks for a new project ("開新專案：<名稱>", "new project: <name>"), create `data/projects/p-YYYYMMDD-HHMMSS.json` first and file into it | Follow the rules below. Write the whole file as valid JSON in one go; the watcher retries on a half-written file but the UI flickers. To start a new project, create `data/projects/p-YYYYMMDD-HHMMSS.json` (the current local time) with `{"version":1,"name":"…","groups":[],"nodes":[],"edges":[],"messages":[]}` |
+| 3 | Find the open canvas (`GET http://localhost:8787/api/projects` lists projects with their canvases, newest first; or ask; the picker's tooltips show the paths), read `data/projects/<pid>/<cid>.json`, then rewrite it with the new nodes and edges. "New project: <name>" / "開新專案：<名稱>": create `data/projects/p-YYYYMMDD-HHMMSS/project.json` (`{"name":"…","createdAt":<ms>}`) and a first canvas `c-YYYYMMDD-HHMMSS.json` inside it. "New canvas: <name>" / "開新畫布：<名稱>": add a `c-YYYYMMDD-HHMMSS.json` to the open project | Follow the rules below. Write the whole file as valid JSON in one go; the watcher retries on a half-written file but the UI flickers. An empty canvas file is `{"version":1,"name":"…","groups":[],"nodes":[],"edges":[],"messages":[]}`; its `name` is the canvas name |
 | 4 | Reply briefly in chat, the same way the duck would | 2–3 sentences, at most one question |
 
 `/duck <thought>` (from `.claude/commands/duck.md`) runs exactly this route; use it when a message could be read as either a thought to file or a request to change the app.
@@ -30,12 +30,14 @@ This document tells Claude Code how to act as the duck directly, without the API
 | Set `suggestedLayout` to fit the content: `timeline` for stories and processes (and give events a `seq`), `mindmap` for knowledge around one concept (and set `root`), `layered` for cause/effect chains, `themes` otherwise | The browser re-arranges the canvas itself in every layout except `themes` |
 | Append the user's message and your reply to `messages` | Keeps the in-app chat in sync. Give the user message and the new nodes the same `createdAt` / `ts` so the Timeline view groups them as one turn |
 
-## Project file schema (`data/projects/<id>.json`)
+## Canvas file schema (`data/projects/<pid>/<cid>.json`)
+
+`project.json` next to it is `{ "name": string, "createdAt": number }`. Ids are lowercase letters, digits, and dashes; `project` is reserved.
 
 | Field | Type | Note |
 |---|---|---|
 | `version` | `1` | |
-| `name` | string | Shown in the project picker |
+| `name` | string | The canvas name, shown in the picker |
 | `layout` | `"themes"` \| `"layered"` \| `"timeline"` \| `"mindmap"` | **Optional**. Pinned by the user; leave alone |
 | `suggestedLayout` | same values | **Optional**. Your suggestion; used when `layout` is unset |
 | `root` | string | **Optional**. Node id at the centre of the mind map |

@@ -19,7 +19,7 @@ Quack Aloud 是一個帶畫布的「橡皮鴨除錯法」工具。你在聊天�
 
 | 元件 | 做什麼 | Note |
 |---|---|---|
-| `data/projects/<id>.json` | 一個專案一個檔：名稱、主題、卡片、關係、對話紀錄、版面 | 唯一的資料來源。所有寫入者（聊天 API、瀏覽器編輯、Claude Code、文字編輯器）都寫這些檔。舊版的 `data/graph.json` 會在啟動時搬成第一個專案 |
+| `data/projects/<pid>/` | 一個專案一個資料夾：`project.json`（名稱）加上一個 canvas 一個檔 `<cid>.json`，內含主題、卡片、關係、對話紀錄、版面 | 唯一的資料來源。所有寫入者（聊天 API、瀏覽器編輯、Claude Code、文字編輯器）都寫這些檔。舊版格式（`data/graph.json`、單檔的 `data/projects/<id>.json`）會在啟動時自動搬過來 |
 | `server/` | 跑在 `API_PORT` 的 Express API | 監看 `data/projects/`，每次變動用 SSE（`/api/events`）推給瀏覽器 |
 | `server/providers/` | LLM 後端 | 用 `PROVIDER` 切換。目前只有 `claude` |
 | `src/` | Vite + React + React Flow 的 UI | 左邊聊天、右邊畫布 |
@@ -61,7 +61,7 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 | 2 | `npm run dev` 並開 http://localhost:5173 | 同左 | agent 透過 `http://localhost:8787/api/projects` 找到開啟中的專案 |
 | 3 | 直接打想法，或 `/duck <想法>` | 在 agent panel 打 `/duck <想法>` | `/duck` 把意圖講明；Claude Code 直接打字也可以。指令清單在對話開始時讀取，clone 或 pull 之後要開新對話 `/duck` 才會出現 |
 | 4 | 訊息裡加「guide」「引導」或「質疑」會得到追問與質疑 | 同左 | 不加就只整理 |
-| 5 | 說「new project: <名稱>」或「開新專案：<名稱>」開一張新畫布 | 同左 | agent 會建 `data/projects/p-<日期>-<時間>.json` 並把訊息其餘部分歸進去。到選單切換過去 |
+| 5 | 說「開新專案：<名稱>」開新專案，或「開新畫布：<名稱>」在目前專案下加一個 canvas | 同左 | agent 會在 `data/projects/` 建資料夾或檔案並把訊息其餘部分歸進去。到選單切換過去 |
 
 兩條路和 app 內的聊天寫的是同一批檔案，可以混用。避免在 agent 寫檔的同一刻在瀏覽器拖卡片；瀏覽器會拒絕過期的寫入並顯示「canvas changed elsewhere」。
 
@@ -76,13 +76,15 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 | `API_PORT` | `8787` | **Optional**。Vite dev server 會把 `/api` 代理到這個 port |
 | `DATA_DIR` | `./data` | **Optional**。放 `projects/` 和 `trash/` 的資料夾。Docker image 設為 `/data` |
 
-## 專案
+## 專案與 canvas
+
+一個專案是一組 canvas：例如一本小說可以有「概念」「人物」「第一章」，每個 canvas 有自己的卡片和對話。
 
 | 控制項 | 位置 | 做什麼 | Note |
 |---|---|---|---|
-| 專案選單 | 頂欄標題旁 | 切換專案。每個專案有自己的畫布和對話 | 最後開啟的專案會記在瀏覽器裡 |
-| + New project… | 選單最後一項 | 輸入名稱、Enter | 從空白開始 |
-| Rename / Delete | 選單旁 | 原地改名；Delete 會原地問一次 | 刪掉的專案搬到 `data/trash/<id>-<時間>.json`，不會真的刪除；複製回 `data/projects/` 就能還原。刪掉最後一個專案會自動建一個空的 |
+| Project › Canvas 選單 | 頂欄標題旁 | 先選專案，再選它底下的 canvas | 最後開啟的 canvas 會記在瀏覽器裡。切換專案會開它最近用的 canvas |
+| + New project… / + New canvas… | 各選單最後一項 | 輸入名稱、Enter | 新專案會附一個空的「Main」canvas |
+| Rename… / Delete… | 各選單最後幾項 | 原地改名；Delete 會原地問一次 | 刪掉的專案和 canvas 搬到 `data/trash/`，不會真的刪除；複製回去就能還原。刪掉專案最後一個 canvas 會自動補一個空的；刪掉最後一個專案會自動建一個新專案 |
 
 ## 模式與檢視
 
@@ -113,9 +115,9 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 | 平移 / 縮放 | 滾輪或 pinch 以游標為中心縮放；按住 Space 拖曳、或中鍵 / 右鍵拖曳平移 |
 | 刪除 | 選取後按 Backspace 或 Delete |
 | 全部重排 | 右上角「Tidy」，用目前版面 |
-| 存一份 | 右上角「Export」。下載目前專案（含對話）成 `quack-aloud-<專案>-<日期>.json` |
-| 載入一份 | 右上角「Import」。從匯出檔建立新專案並切換過去，不會覆蓋任何東西。任何合法的專案檔都可以，手寫的也行 |
-| 重來 | 右上角「Clear」，再按「Really clear everything?」確認。清空目前專案的內容但保留專案 |
+| 存一份 | 右上角「Export」。下載目前 canvas（含對話）成 `quack-aloud-<專案>-<canvas>-<日期>.json` |
+| 載入一份 | 右上角「Import」。從匯出檔在目前專案裡建立新 canvas 並切換過去，不會覆蓋任何東西。任何合法的 canvas 檔都可以，手寫的也行 |
+| 重來 | 右上角「Clear」，再按「Really clear everything?」確認。清空目前 canvas 的內容但保留它 |
 | 收起聊天欄 | 頂欄的「Hide chat」，或聊天欄上的 ‹。畫布佔滿寬度；選擇會記在瀏覽器裡 |
 
 | 外觀 | 意義 |
@@ -154,7 +156,7 @@ prompt 本身在 `server/prompt.ts`，所有 provider 共用。
 | 聊天欄顯示「No credentials for provider」 | 沒有 `.env` 或 key 是空的 | 填好 `ANTHROPIC_API_KEY`，重跑 `npm run dev` |
 | 右上角顯示「disconnected」 | API server 沒跑，或跑在別的 port | 看終端機的 `[server]` 那幾行；對齊 `API_PORT` |
 | 手改專案檔後畫布變空 | JSON 不合法，或卡片缺 `id` / `label` | server 會略過讀不了的檔、丟掉壞的項目；修好 JSON 再存一次 |
-| 專案從選單消失 | 檔案被刪，或被改成 `<id>.json` 以外的名稱（小寫字母、數字、連字號） | 用合法名稱放回 `data/projects/` |
+| 專案或 canvas 從選單消失 | 資料夾或檔案被刪、名稱含小寫字母數字連字號以外的字元，或專案資料夾少了 `project.json` | 用合法名稱放回 `data/projects/<pid>/` |
 | Claude Code 說「Unknown command: /duck」 | 對話開始時 `.claude/commands/duck.md` 還不存在；指令在對話開始時讀取 | 開新對話，或不加 `/duck` 直接打想法（CLAUDE.md 已經教 Claude Code 怎麼歸檔） |
 | Antigravity 的 `/duck` 沒反應 | 沒吃到 `.agents/workflows/duck.md` | 確認這個資料夾是 workspace 根目錄；舊的 `.agent/` 名稱也接受 |
 

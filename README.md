@@ -21,7 +21,7 @@ Not in this document:
 
 | Piece | What it does | Note |
 |---|---|---|
-| `data/projects/<id>.json` | One file per project: name, themes, cards, relations, chat history, layout | Single source of truth. Every writer (chat API, browser edits, Claude Code, a text editor) writes these files. An older `data/graph.json` is moved into the first project on startup |
+| `data/projects/<pid>/` | One folder per project: `project.json` (name) and one file per canvas `<cid>.json` with themes, cards, relations, chat history, layout | Single source of truth. Every writer (chat API, browser edits, Claude Code, a text editor) writes these files. Older layouts (`data/graph.json`, flat `data/projects/<id>.json`) are migrated on startup |
 | `server/` | Express API on `API_PORT` | Watches `data/projects/` and pushes every change to browsers over SSE (`/api/events`) |
 | `server/providers/` | LLM backends | Swappable via `PROVIDER`. Only `claude` is implemented |
 | `src/` | Vite + React + React Flow UI | Chat on the left, canvas on the right |
@@ -63,7 +63,7 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 | 2 | `npm run dev` and open http://localhost:5173 | same | The agent finds the open project through `http://localhost:8787/api/projects` |
 | 3 | Type the thought, plainly or as `/duck <thought>` | `/duck <thought>` in the agent panel | `/duck` makes the intent explicit; a plain message in Claude Code works too. The command list is read when a session starts, so after cloning or pulling, start a new session before `/duck` shows up |
 | 4 | Add "guide", "引導", or "質疑" to the message for questions and challenges | same | Without it the agent only organises |
-| 5 | Say "new project: <name>" or "開新專案：<名稱>" to start a fresh canvas | same | The agent creates `data/projects/p-<date>-<time>.json` and files the rest of the message there. Switch to it in the picker |
+| 5 | Say "new project: <name>" / "開新專案：<名稱>" for a fresh project, or "new canvas: <name>" / "開新畫布：<名稱>" for another canvas in the open project | same | The agent creates the folder or file under `data/projects/` and files the rest of the message there. Switch to it in the pickers |
 
 Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
 
@@ -78,13 +78,15 @@ Both routes and the in-app chat write the same files, so they can be mixed. Avoi
 | `API_PORT` | `8787` | **Optional**. The Vite dev server proxies `/api` to this port |
 | `DATA_DIR` | `./data` | **Optional**. Folder holding `projects/` and `trash/`. The Docker image sets `/data` |
 
-## Projects
+## Projects and canvases
+
+A project is a folder of canvases: a novel might have "Concept", "Characters", and "Chapter 1"; each canvas has its own cards and chat.
 
 | Control | Where | What it does | Note |
 |---|---|---|---|
-| Project picker | Top bar, next to the title | Switch between projects. Each project is its own canvas and chat | The last opened project is remembered per browser |
-| + New project… | Last entry of the picker | Type a name, Enter | Starts empty |
-| Rename / Delete | Next to the picker | Rename inline; Delete asks once, inline | A deleted project is moved to `data/trash/<id>-<time>.json`, not removed; copy it back into `data/projects/` to restore it. Deleting the last project creates a fresh empty one |
+| Project › Canvas pickers | Top bar, next to the title | Pick a project, then one of its canvases | The last opened canvas is remembered per browser. Picking a project opens its most recent canvas |
+| + New project… / + New canvas… | Last entries of each picker | Type a name, Enter | A new project starts with one empty canvas called "Main" |
+| Rename… / Delete… | Last entries of each picker | Rename inline; Delete asks once, inline | Deleted projects and canvases move to `data/trash/`, not removed; copy them back to restore. Deleting a project's last canvas creates a fresh empty one; deleting the last project creates a fresh project |
 
 ## Modes and views
 
@@ -115,9 +117,9 @@ Both routes and the in-app chat write the same files, so they can be mixed. Avoi
 | Pan / zoom | Scroll or pinch to zoom around the cursor; hold Space and drag, or middle- or right-drag, to pan |
 | Delete | Select, then Backspace or Delete |
 | Re-lay out everything | "Tidy" (top right), in the current layout |
-| Save a copy | "Export" (top right). Downloads the current project, chat included, as `quack-aloud-<project>-<date>.json` |
-| Load a copy | "Import" (top right). Creates a new project from an exported file and switches to it; nothing is overwritten. Any valid project file works, including one written by hand |
-| Start over | "Clear" (top right), then confirm with "Really clear everything?". Empties the current project but keeps it |
+| Save a copy | "Export" (top right). Downloads the current canvas, chat included, as `quack-aloud-<project>-<canvas>-<date>.json` |
+| Load a copy | "Import" (top right). Creates a new canvas in the current project from an exported file and switches to it; nothing is overwritten. Any valid canvas file works, including one written by hand |
+| Start over | "Clear" (top right), then confirm with "Really clear everything?". Empties the current canvas but keeps it |
 | Hide the chat | "Hide chat" in the top bar, or the ‹ button on the chat panel. The canvas takes the full width; the choice is remembered per browser |
 
 | Visual | Meaning |
@@ -156,7 +158,7 @@ The prompt itself lives in `server/prompt.ts` and is shared by all providers.
 | Chat says "No credentials for provider" | `.env` missing or key empty | Fill in `ANTHROPIC_API_KEY`, restart `npm run dev` |
 | Top-right pill says "disconnected" | API server not running or on a different port | Check the `[server]` lines in the terminal; match `API_PORT` |
 | Canvas empty after editing a project file by hand | Invalid JSON, or nodes missing `id` / `label` | The server skips unreadable files and drops bad entries; fix the JSON and save again |
-| A project vanished from the picker | Its file was deleted or renamed to something other than `<id>.json` (lowercase letters, digits, dashes) | Put it back under `data/projects/` with a valid name |
+| A project or canvas vanished from the pickers | Its folder or file was deleted or renamed to something other than lowercase letters, digits, and dashes; or a project folder lost its `project.json` | Put it back under `data/projects/<pid>/` with a valid name |
 | Claude Code says "Unknown command: /duck" | The session started before `.claude/commands/duck.md` existed; commands are read at session start | Start a new session, or type the thought without `/duck` (CLAUDE.md already tells Claude Code how to file it) |
 | `/duck` does nothing in Antigravity | `.agents/workflows/duck.md` not picked up | Check the folder is the workspace root; the older `.agent/` name is also accepted |
 

@@ -9,7 +9,7 @@ import type { ThinkOutput } from "./providers/types";
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "quack-aloud-test-"));
 process.env.DATA_DIR = tmp;
 const { applyThinkResult, findFreeSpot, normalize, placeInGroup } = await import("./graph");
-const { createProject, deleteProject, ensureMigrated, ensureOneProject, listProjects, loadProject, renameProject, saveProject } = await import("./projects");
+const { createCanvas, createProject, deleteCanvas, deleteProject, ensureMigrated, ensureOneProject, listProjects, loadCanvas, renameCanvas, renameProject, saveCanvas } = await import("./projects");
 
 function node(id: string, extra: Partial<ThoughtNode> = {}): ThoughtNode {
   return { id, label: id, origin: "user", kind: "idea", x: 0, y: 0, createdAt: 1, ...extra };
@@ -61,47 +61,65 @@ describe("normalize", () => {
 describe("project store", () => {
   beforeAll(() => fs.rmSync(path.join(tmp, "projects"), { recursive: true, force: true }));
 
-  it("migrates a legacy data/graph.json into the first project", () => {
+  it("migrates data/graph.json and flat project files into project folders", () => {
     fs.writeFileSync(path.join(tmp, "graph.json"), JSON.stringify({ ...emptyGraph(), nodes: [node("legacy")] }));
+    fs.mkdirSync(path.join(tmp, "projects"), { recursive: true });
+    fs.writeFileSync(path.join(tmp, "projects", "old-flat.json"), JSON.stringify({ ...emptyGraph(), name: "Old flat", nodes: [node("a"), node("b")] }));
     ensureMigrated();
     expect(fs.existsSync(path.join(tmp, "graph.json"))).toBe(false);
+    expect(fs.existsSync(path.join(tmp, "projects", "old-flat.json"))).toBe(false);
     const list = listProjects();
-    expect(list).toHaveLength(1);
-    expect(list[0]).toMatchObject({ name: "My project", nodeCount: 1 });
-    expect(list[0].id).toMatch(/^p-\d{8}-\d{6}(-\d+)?$/);
+    expect(list.map((p) => p.name).sort()).toEqual(["My project", "Old flat"]);
+    const old = list.find((p) => p.name === "Old flat")!;
+    expect(old.id).toBe("old-flat");
+    expect(old.canvases).toHaveLength(1);
+    expect(old.canvases[0]).toMatchObject({ id: "main", name: "Main", nodeCount: 2 });
     ensureMigrated(); // idempotent
-    expect(listProjects()).toHaveLength(1);
+    expect(listProjects()).toHaveLength(2);
   });
 
-  it("creates, lists, renames, saves, and deletes projects", () => {
-    const { id, graph } = createProject("  Black cat  ");
-    expect(id).toMatch(/^p-\d{8}-\d{6}(-\d+)?$/); // may carry a suffix when created in the same second as another
-    expect(graph.name).toBe("Black cat");
-    const second = createProject("黑貓").id; // a non-Latin name gets the same kind of id
-    expect(second).toMatch(/^p-\d{8}-\d{6}(-\d+)?$/);
-    expect(second).not.toBe(id);
-    expect(createProject("   ").graph.name).toBe("Untitled project");
+  it("creates projects and canvases, renames, saves, and deletes", () => {
+    const { id, canvas, graph } = createProject("  Black cat  ");
+    expect(id).toMatch(/^p-\d{8}-\d{6}(-\d+)?$/);
+    expect(canvas).toMatch(/^c-\d{8}-\d{6}(-\d+)?$/);
+    expect(graph.name).toBe("Main");
+    expect(listProjects().find((p) => p.id === id)!.name).toBe("Black cat");
+    expect(createProject("   ").graph.name).toBe("Main");
+
+    const concept = createCanvas(id, "概念")!;
+    expect(concept.graph.name).toBe("概念");
+    expect(createCanvas("nope", "x")).toBeNull();
+    expect(listProjects().find((p) => p.id === id)!.canvases.map((c) => c.name).sort()).toEqual(["Main", "概念"]);
 
     const before = Date.now();
-    const saved = saveProject(id, { ...graph, nodes: [node("a", { detail: "d" })] });
+    const saved = saveCanvas(id, concept.id, { ...concept.graph, nodes: [node("a", { detail: "d" })] });
     expect(saved.updatedAt).toBeGreaterThanOrEqual(before);
-    expect(saved.name).toBe("Black cat");
-    expect(loadProject(id)!.nodes).toEqual(saved.nodes);
-    expect(fs.existsSync(path.join(tmp, "projects", `${id}.json.tmp`))).toBe(false);
+    expect(saved.name).toBe("概念");
+    expect(loadCanvas(id, concept.id)!.nodes).toEqual(saved.nodes);
+    expect(fs.existsSync(path.join(tmp, "projects", id, `${concept.id}.json.tmp`))).toBe(false);
 
-    expect(renameProject(id, "Cats")!.name).toBe("Cats");
-    expect(renameProject("nope", "x")).toBeNull();
-    expect(listProjects().find((p) => p.id === id)).toMatchObject({ name: "Cats", nodeCount: 1 });
+    expect(renameCanvas(id, concept.id, "Concept")!.name).toBe("Concept");
+    expect(renameCanvas(id, "nope", "x")).toBeNull();
+    expect(renameProject(id, "Cats")).toBe(true);
+    expect(listProjects().find((p) => p.id === id)!.name).toBe("Cats");
 
-    expect(deleteProject(id)).toEqual({ deleted: true, replacement: undefined }); // the migrated project still exists
+    expect(deleteCanvas(id, concept.id)).toEqual({ deleted: true, replacement: undefined }); // "Main" still exists
+    expect(deleteCanvas(id, concept.id)).toEqual({ deleted: false });
+    expect(fs.readdirSync(path.join(tmp, "trash")).some((f) => f.startsWith(`${id}-${concept.id}-`))).toBe(true);
+
+    const last = listProjects().find((p) => p.id === id)!.canvases[0].id;
+    const r = deleteCanvas(id, last);
+    expect(r.deleted).toBe(true);
+    expect(r.replacement).toBeDefined(); // a project never ends up without a canvas
+    expect(listProjects().find((p) => p.id === id)!.canvases).toHaveLength(1);
+
+    expect(deleteProject(id)).toEqual({ deleted: true, replacement: undefined });
     expect(deleteProject(id)).toEqual({ deleted: false });
-    expect(loadProject(id)).toBeNull();
-    const trashed = fs.readdirSync(path.join(tmp, "trash")).filter((f) => f.startsWith(`${id}-`));
-    expect(trashed).toHaveLength(1);
+    expect(fs.readdirSync(path.join(tmp, "trash")).some((f) => f.startsWith(`${id}-`) && !f.endsWith(".json"))).toBe(true);
   });
 
   it("deleting the last project moves it to trash and creates a fresh one", () => {
-    const keep = listProjects().find((p) => p.name === "My project")!.id;
+    const keep = listProjects()[0].id;
     for (const p of listProjects()) if (p.id !== keep) deleteProject(p.id);
     const before = listProjects();
     expect(before).toHaveLength(1);
@@ -111,14 +129,15 @@ describe("project store", () => {
     const after = listProjects();
     expect(after).toHaveLength(1);
     expect(after[0].id).toBe(result.replacement);
-    expect(after[0].nodeCount).toBe(0);
+    expect(after[0].canvases[0].nodeCount).toBe(0);
     expect(ensureOneProject()).toBe(after[0].id); // no duplicates when one exists
     expect(listProjects()).toHaveLength(1);
   });
 
   it("rejects unsafe ids", () => {
-    expect(() => loadProject("../etc/passwd")).toThrow();
-    expect(() => loadProject("Has Spaces")).toThrow();
+    expect(() => loadCanvas("../etc", "passwd")).toThrow();
+    expect(() => loadCanvas("Has Spaces", "x")).toThrow();
+    expect(() => loadCanvas("ok", "project")).toThrow(); // reserved for the metadata file
   });
 });
 
