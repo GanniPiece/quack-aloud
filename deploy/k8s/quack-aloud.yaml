@@ -2,6 +2,7 @@
 # and use a ReadWriteOnce volume. Create the secret first:
 #   kubectl create secret generic quack-aloud --from-literal=ANTHROPIC_API_KEY=sk-ant-... \
 #     --from-literal=APP_EMAIL=you@example.com --from-literal=APP_PASSWORD=...
+# Add --from-literal=MCP_TOKEN=... to pin the MCP bearer token (otherwise one is generated on the volume).
 # APP_EMAIL + APP_PASSWORD seed the owner account on first start (or leave them out and create
 # it on the first visit; accounts are kept on the volume). Set TRUST_PROXY=1 when an Ingress
 # terminates TLS in front of the pod.

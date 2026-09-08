@@ -80,13 +80,12 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 | Claude Code | Nothing: `.mcp.json` in this repo registers it as `quack-aloud`; approve the server when Claude Code asks. `claude mcp add quack-aloud -- npx tsx server/mcp.ts` does the same from anywhere (run in this folder, or set `DATA_DIR`) |
 | Antigravity, other MCP clients | Add a stdio server with command `npx tsx server/mcp.ts` and this folder as the working directory |
 
-The MCP server is not a service: the MCP client starts it as a child process over stdio on the machine where the agent runs, and it works on the project files. Where that process should run depends on how the app runs:
+The same tools are also served over HTTP by the app itself, so they start with `npm run dev`, Docker, or Kubernetes and remote agents can connect:
 
-| The app runs… | MCP command | Note |
+| Transport | When | Setup |
 |---|---|---|
-| With `npm run dev`, or in local Docker, and this repo is on the machine | `npx tsx server/mcp.ts` (the default `.mcp.json`) | Docker mounts `./data`, so the host-side MCP edits the same files and the container's watcher updates the browser |
-| Only in Docker, no Node on the host | `docker compose exec -T quack-aloud npx tsx server/mcp.ts` (`.mcp.docker.json`) | Runs the server inside the container; the image already contains `server/` and `tsx` |
-| In Kubernetes | `kubectl exec -i deploy/quack-aloud -- npx tsx server/mcp.ts` | Needs kubectl access to the cluster. A remote transport (Streamable HTTP with a token) is the proper answer and not built yet |
+| stdio (`npx tsx server/mcp.ts`) | The agent runs on the machine that has this repo and the data | `.mcp.json` (Claude Code picks it up), or `.mcp.docker.json` to run it inside the container via `docker compose exec` |
+| HTTP (`/mcp` on the API port) | The app runs somewhere else (Docker on another box, Kubernetes), or you want one endpoint for several agents | Settings › MCP access (owner only) shows the bearer token and a ready-made `claude mcp add --transport http …` command. Pin the token with `MCP_TOKEN` if you prefer; rotate it in Settings when a copy leaks. Whoever holds the token can read and write every project, so keep the endpoint behind HTTPS |
 
 Testing it: `npm test` covers the tool logic (`server/mcp.test.ts`) and the protocol itself (`server/mcp.protocol.test.ts` connects the SDK client to the server over an in-memory transport and runs the handshake, tool listing, schema validation, and calls). To try it by hand, `npx @modelcontextprotocol/inspector npx tsx server/mcp.ts` opens a web UI where you can call each tool; in Claude Code, start a new session in this folder and type `/mcp` to see `quack-aloud` listed.
 

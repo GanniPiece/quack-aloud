@@ -9,6 +9,59 @@ interface Props {
   me: AuthUser | null;
 }
 
+function McpAccess() {
+  const [info, setInfo] = useState<{ token: string; source: "env" | "file"; url: string; claudeCode: string } | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [shown, setShown] = useState(false);
+  const load = () => api.mcpInfo().then(setInfo).catch((err) => setMsg((err as Error).message));
+  useEffect(() => {
+    void load();
+  }, []);
+  const copy = async (text: string, what: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setMsg(`${what} copied.`);
+    } catch {
+      setMsg("Copy failed; select the text and copy it yourself.");
+    }
+  };
+  const rotate = async () => {
+    setMsg(null);
+    try {
+      await api.rotateMcpToken();
+      await load();
+      setMsg("New token issued; agents using the old one must be updated.");
+    } catch (err) {
+      setMsg((err as Error).message);
+    }
+  };
+  return (
+    <details className="field">
+      <summary>MCP access</summary>
+      <small>Agents (Claude Code, Antigravity, others) can drive the duck over HTTP at the address below with this bearer token. Anyone holding the token can read and write every project.</small>
+      {info && (
+        <>
+          <div className="token-row">
+            <code>{shown ? info.token : "•".repeat(24)}</code>
+            <button className="link" onClick={() => setShown((s) => !s)}>{shown ? "hide" : "show"}</button>
+            <button className="link" onClick={() => copy(info.token, "Token")}>copy</button>
+          </div>
+          <small>Endpoint: <code>{info.url}</code></small>
+          <div className="token-row">
+            <small>Claude Code:</small>
+            <button className="link" onClick={() => copy(info.claudeCode, "Command")}>copy the add command</button>
+          </div>
+          <div className="modal-actions">
+            {msg && <small className="pw-msg">{msg}</small>}
+            <button className="ghost" onClick={rotate} disabled={info.source === "env"} title={info.source === "env" ? "Set by MCP_TOKEN in the environment" : "Issue a new token"}>Rotate token</button>
+          </div>
+        </>
+      )}
+      {!info && msg && <small className="pw-msg">{msg}</small>}
+    </details>
+  );
+}
+
 function Accounts({ me }: { me: AuthUser }) {
   const [users, setUsers] = useState<UserRecord[] | null>(null);
   const [email, setEmail] = useState("");
@@ -202,6 +255,7 @@ export function SettingsDialog({ onClose, onSaved, me }: Props) {
             <button className="ghost" onClick={changePassword} disabled={pwBusy || pwNext.length < 8}>{pwBusy ? "Changing…" : "Change"}</button>
           </div>
         </details>
+        {me?.role === "owner" && <McpAccess />}
         {me?.role === "owner" && <Accounts me={me} />}
         <div className="modal-actions">
           <button className="ghost" onClick={onClose}>Cancel</button>
