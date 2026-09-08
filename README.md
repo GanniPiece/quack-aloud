@@ -13,6 +13,7 @@ Not in this document:
 
 | Scenario | What happens |
 |---|---|
+| ![Talking to the duck on the full-screen stage](docs/demo-talk.gif) | **Talking to the duck**. "Talk to the duck" opens the stage: type (or dictate) under a big duck, send, watch it think, and read the reply right there; back on the canvas the new cards are already filed. Here it questions the cause-and-effect in "after the omen, two families moved away" |
 | ![Plotting a story with AI guidance on](docs/demo-novel.gif) | **Plotting a story** (guidance on). Three fragments of a mystery go in; the duck files people, events, and claims, picks the Timeline layout, and when the third message jumps from "she saw a cat" to "so he was telling the truth", it pushes back with a challenge card |
 | ![Learning a new topic, guidance off then on](docs/demo-learning.gif) | **Learning something new** (guidance off, then on). Notes about TOPS become a mind map with intermediate concepts; switching guidance on and stating "higher TOPS always means faster" earns a challenge about INT8 vs FP16 and memory bandwidth |
 
