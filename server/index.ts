@@ -22,7 +22,8 @@ import {
   saveCanvas,
 } from "./projects";
 import { buildThinkInput } from "./prompt";
-import { RefusalError, describeProviderError, getProvider } from "./providers";
+import { PROVIDER_NAMES, RefusalError, describeProviderError, getProvider } from "./providers";
+import { EFFORTS, maskKey, resolveConfig, updateSettings, type Effort } from "./settings";
 
 const PORT = Number(process.env.API_PORT ?? 8787);
 const app = express();
@@ -108,6 +109,51 @@ function providerInfo() {
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, ...providerInfo(), projectsDir: PROJECTS_DIR });
+});
+
+// ---------- settings (API key, provider, model, effort) ----------
+// The key itself never leaves the server: clients get a masked hint and a "configured" flag.
+
+function settingsView() {
+  const cfg = resolveConfig();
+  const p = getProvider();
+  return {
+    provider: cfg.provider,
+    providers: PROVIDER_NAMES,
+    model: p.model,
+    effort: p.effort ?? null,
+    efforts: EFFORTS,
+    keyConfigured: Boolean(cfg.apiKey),
+    keyMasked: maskKey(cfg.apiKey),
+    keySource: cfg.keySource,
+  };
+}
+
+app.get("/api/settings", (_req, res) => {
+  res.json(settingsView());
+});
+
+app.put("/api/settings", (req, res) => {
+  const body = (req.body ?? {}) as { provider?: unknown; apiKey?: unknown; model?: unknown; effort?: unknown };
+  const patch: Parameters<typeof updateSettings>[0] = {};
+  if (typeof body.provider === "string") {
+    if (!PROVIDER_NAMES.includes(body.provider)) {
+      res.status(400).json({ error: `Unknown provider "${body.provider}"` });
+      return;
+    }
+    patch.provider = body.provider;
+  }
+  if (typeof body.apiKey === "string") patch.apiKey = body.apiKey;
+  if (typeof body.model === "string") patch.model = body.model;
+  if (typeof body.effort === "string") {
+    if (!EFFORTS.includes(body.effort as Effort)) {
+      res.status(400).json({ error: `Unknown effort "${body.effort}"` });
+      return;
+    }
+    patch.effort = body.effort as Effort;
+  }
+  updateSettings(patch);
+  res.json(settingsView());
 });
 
 /**
@@ -260,7 +306,7 @@ app.post("/api/think", async (req, res) => {
   }
   const provider = getProvider();
   if (!provider.configured()) {
-    res.status(401).json({ error: `No credentials for provider "${provider.name}". See README to set up .env.` });
+    res.status(401).json({ error: `No API key for provider "${provider.name}". Add one in Settings (top right) or in .env.` });
     return;
   }
   try {

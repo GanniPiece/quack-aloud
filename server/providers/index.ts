@@ -1,30 +1,34 @@
+import { resolveConfig, type ResolvedConfig } from "../settings";
 import { ClaudeProvider } from "./claude";
 import type { ThinkProvider } from "./types";
 
 /**
  * To add a provider:
  * 1. Implement ThinkProvider under providers/ (think() must return an object that passes ThinkOutputSchema)
- * 2. Register a name in REGISTRY
- * 3. Set PROVIDER=<name> in .env
- * 4. Add that SDK's error mapping to describeProviderError
+ * 2. Register a factory in REGISTRY; it receives the resolved config (api key, model, effort)
+ * 3. Add that SDK's error mapping to describeProviderError
+ * 4. Pick it in Settings, or set PROVIDER=<name> in .env
  */
-const REGISTRY: Record<string, () => ThinkProvider> = {
-  claude: () => new ClaudeProvider(),
-  // openai: () => new OpenAIProvider(),
-  // gemini: () => new GeminiProvider(),
+const REGISTRY: Record<string, (cfg: ResolvedConfig) => ThinkProvider> = {
+  claude: (cfg) => new ClaudeProvider({ apiKey: cfg.apiKey, model: cfg.model, effort: cfg.effort }),
+  // openai: (cfg) => new OpenAIProvider({ ... }),
+  // gemini: (cfg) => new GeminiProvider({ ... }),
 };
 
-let instance: ThinkProvider | undefined;
+export const PROVIDER_NAMES = Object.keys(REGISTRY);
 
+let instance: { key: string; provider: ThinkProvider } | undefined;
+
+/** The provider for the current settings; rebuilt whenever the settings change. */
 export function getProvider(): ThinkProvider {
-  if (instance) return instance;
-  const name = (process.env.PROVIDER ?? "claude").toLowerCase();
-  const factory = REGISTRY[name];
+  const cfg = resolveConfig();
+  const factory = REGISTRY[cfg.provider];
   if (!factory) {
-    throw new Error(`Unknown PROVIDER="${name}". Available: ${Object.keys(REGISTRY).join(", ")}`);
+    throw new Error(`Unknown provider "${cfg.provider}". Available: ${PROVIDER_NAMES.join(", ")}`);
   }
-  instance = factory();
-  return instance;
+  const key = JSON.stringify([cfg.provider, cfg.apiKey, cfg.model, cfg.effort]);
+  if (!instance || instance.key !== key) instance = { key, provider: factory(cfg) };
+  return instance.provider;
 }
 
 /** Map each SDK's errors to an HTTP response; null means unrecognised, fall through to 500. */

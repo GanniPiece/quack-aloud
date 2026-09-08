@@ -25,6 +25,17 @@ export interface HealthInfo {
   projectsDir: string;
 }
 
+export interface SettingsInfo {
+  provider: string;
+  providers: string[];
+  model: string;
+  effort: string | null;
+  efforts: string[];
+  keyConfigured: boolean;
+  keyMasked: string | null;
+  keySource: "settings" | "env" | "none";
+}
+
 export interface CanvasInfo {
   id: string;
   name: string;
@@ -48,6 +59,9 @@ export interface CanvasRef {
 
 export const api = {
   health: () => fetch("/api/health").then((r) => json<HealthInfo>(r)),
+  getSettings: () => fetch("/api/settings").then((r) => json<SettingsInfo>(r)),
+  putSettings: (patch: { provider?: string; apiKey?: string; model?: string; effort?: string }) =>
+    fetch("/api/settings", { method: "PUT", headers: JSON_HEADERS, body: JSON.stringify(patch) }).then((r) => json<SettingsInfo>(r)),
 
   listProjects: () => fetch("/api/projects").then((r) => json<ProjectInfo[]>(r)),
   createProject: (name: string) =>
