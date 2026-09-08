@@ -32,6 +32,35 @@ body { background: var(--bg); }
 }
 .pill.ok { background: #e6f4ea; color: #1e7b3a; }
 .pill.bad { background: #fdecea; color: var(--danger); }
+.pill.as-button { font: inherit; font-size: 12px; border: 0; cursor: pointer; }
+.pill.as-button:hover { background: #e8e5dc; }
+button.link { font: inherit; font-size: inherit; color: #8a6d0b; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+
+/* ---------- modal (settings) ---------- */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+  background: rgba(43, 42, 38, 0.35); animation: stage-in 0.15s ease-out;
+}
+.modal {
+  width: min(520px, 92vw); background: #fff; border-radius: 16px; padding: 22px 24px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; gap: 14px;
+}
+.modal h2 { margin: 0 0 4px; font-size: 18px; }
+.modal .muted { color: var(--muted); }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.field > span { font-weight: 600; }
+.field input, .field select {
+  font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: #fbfaf7; outline: none;
+}
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.field small { color: var(--muted); line-height: 1.4; }
+.field .check { display: flex; align-items: center; gap: 6px; font-weight: 400; color: var(--text); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+.modal-actions button { font: inherit; font-size: 14px; font-weight: 600; padding: 9px 16px; border-radius: 10px; cursor: pointer; }
+.modal-actions .ghost { background: #fff; border: 1px solid var(--line); color: var(--text); }
+.modal-actions .primary { background: var(--accent); border: 0; color: #2b2a26; }
+.modal-actions button:disabled { opacity: 0.5; cursor: default; }
 .topbar .ghost {
   font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 8px; cursor: pointer;
   background: #fff; border: 1px solid var(--line); color: var(--text);

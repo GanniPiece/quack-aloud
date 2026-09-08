@@ -11,3 +11,4 @@ data/graph.json*
 docs
 *.log
 .DS_Store
+data/settings.json

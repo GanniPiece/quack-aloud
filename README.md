@@ -37,9 +37,9 @@ Most AI tools invert the order of thinking: you ask, the model answers, and you 
 
 1. `npm install`
 2. `cp .env.example .env`
-3. Put your Anthropic API key in `.env` as `ANTHROPIC_API_KEY` (create one at console.anthropic.com; it is billed per token, separately from a Claude.ai subscription)
-4. `npm run dev`
-5. Open http://localhost:5173
+3. `npm run dev`
+4. Open http://localhost:5173
+5. Click **Settings** (top right) and paste your Anthropic API key (create one at console.anthropic.com; it is billed per token, separately from a Claude.ai subscription). It is saved on the server in `data/settings.json`, readable by its owner only, and never sent back to the browser. Putting `ANTHROPIC_API_KEY` in `.env` works too
 6. Type something like "The home page loads slowly, I think it's the database" and press Enter. You should see two yellow cards inside a tinted theme container, an edge between them, and a one-line reply saying what was filed
 7. Switch on **AI guidance** (top of the chat) and send another thought. You should now also see one or two dashed blue cards from the duck and a short conversational reply
 
@@ -73,11 +73,13 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 
 Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
 
-## Configuration (`.env`)
+## Configuration
+
+Provider, API key, model, and effort are set in **Settings** (top right; also reachable from the "no key" notice in the chat). They are stored in `data/settings.json` with owner-only permissions and take effect at once, no restart. Anything not set there falls back to `.env`:
 
 | Key | Default | Note |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | | Required for the `claude` provider |
+| `ANTHROPIC_API_KEY` | | Key for the `claude` provider when none is saved in Settings |
 | `PROVIDER` | `claude` | **Optional**. Name registered in `server/providers/index.ts` |
 | `CLAUDE_MODEL` | `claude-opus-5` | **Optional** |
 | `CLAUDE_EFFORT` | `medium` | **Optional**. `low` / `medium` / `high` / `xhigh` / `max`. Higher is slower and costs more |
@@ -161,7 +163,7 @@ The prompt itself lives in `server/prompt.ts` and is shared by all providers.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Chat says "No credentials for provider" | `.env` missing or key empty | Fill in `ANTHROPIC_API_KEY`, restart `npm run dev` |
+| Chat says "No API key for provider" | No key saved in Settings and none in `.env` | Open Settings and paste the key; no restart needed |
 | Top-right pill says "disconnected" | API server not running or on a different port | Check the `[server]` lines in the terminal; match `API_PORT` |
 | Canvas empty after editing a project file by hand | Invalid JSON, or nodes missing `id` / `label` | The server skips unreadable files and drops bad entries; fix the JSON and save again |
 | A project or canvas vanished from the pickers | Its folder or file was deleted or renamed to something other than lowercase letters, digits, and dashes; or a project folder lost its `project.json` | Put it back under `data/projects/<pid>/` with a valid name |

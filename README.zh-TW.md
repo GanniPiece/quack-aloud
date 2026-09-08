@@ -35,9 +35,9 @@ Quack Aloud 是帶畫布的橡皮鴨除錯法：你對一隻鴨子把想法說�
 
 1. `npm install`
 2. `cp .env.example .env`
-3. 把 Anthropic API key 填進 `.env` 的 `ANTHROPIC_API_KEY`（到 console.anthropic.com 建立；按 token 計費，和 Claude.ai 訂閱分開）
-4. `npm run dev`
-5. 開 http://localhost:5173
+3. `npm run dev`
+4. 開 http://localhost:5173
+5. 按右上角 **Settings**，貼上 Anthropic API key（到 console.anthropic.com 建立；按 token 計費，和 Claude.ai 訂閱分開）。它存在 server 的 `data/settings.json`，權限只有擁有者可讀，不會送回瀏覽器。寫在 `.env` 的 `ANTHROPIC_API_KEY` 也可以
 6. 輸入類似「首頁載入很慢，我猜是資料庫的問題」然後按 Enter。你會看到兩張黃色卡片在一個淡色主題容器裡、中間一條邊，以及一句「歸了什麼」的回覆
 7. 開啟聊天欄上方的 **AI guidance**，再送一句想法。這時會多出一兩張鴨子的藍色虛線卡，回覆也變成口語的兩三句
 
@@ -71,11 +71,13 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 
 兩條路和 app 內的聊天寫的是同一批檔案，可以混用。避免在 agent 寫檔的同一刻在瀏覽器拖卡片；瀏覽器會拒絕過期的寫入並顯示「canvas changed elsewhere」。
 
-## 設定（`.env`）
+## 設定
+
+Provider、API key、model、effort 在右上角 **Settings** 設定（聊天欄的「no key」提示也能直接打開）。存在 `data/settings.json`，權限只有擁有者可讀，存了立刻生效不用重啟。沒設定的項目退回 `.env`：
 
 | Key | Default | Note |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | | `claude` provider 必填 |
+| `ANTHROPIC_API_KEY` | | Settings 沒存 key 時，`claude` provider 用這個 |
 | `PROVIDER` | `claude` | **Optional**。`server/providers/index.ts` 裡登記的名稱 |
 | `CLAUDE_MODEL` | `claude-opus-5` | **Optional** |
 | `CLAUDE_EFFORT` | `medium` | **Optional**。`low` / `medium` / `high` / `xhigh` / `max`。越高越慢也越貴 |
@@ -159,7 +161,7 @@ prompt 本身在 `server/prompt.ts`，所有 provider 共用。
 
 | 症狀 | 原因 | 處理 |
 |---|---|---|
-| 聊天欄顯示「No credentials for provider」 | 沒有 `.env` 或 key 是空的 | 填好 `ANTHROPIC_API_KEY`，重跑 `npm run dev` |
+| 聊天欄顯示「No API key for provider」 | Settings 沒存 key，`.env` 也沒有 | 打開 Settings 貼上 key，不用重啟 |
 | 右上角顯示「disconnected」 | API server 沒跑，或跑在別的 port | 看終端機的 `[server]` 那幾行；對齊 `API_PORT` |
 | 手改專案檔後畫布變空 | JSON 不合法，或卡片缺 `id` / `label` | server 會略過讀不了的檔、丟掉壞的項目；修好 JSON 再存一次 |
 | 專案或 canvas 從選單消失 | 資料夾或檔案被刪、名稱含小寫字母數字連字號以外的字元，或專案資料夾少了 `project.json` | 用合法名稱放回 `data/projects/<pid>/` |

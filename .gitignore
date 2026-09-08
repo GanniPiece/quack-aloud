@@ -10,3 +10,4 @@ data/backup-*.json
 .claude/*
 !.claude/commands/
 data/trash/
+data/settings.json

@@ -17,6 +17,7 @@ interface Props {
   busy: boolean;
   error: string | null;
   disabledReason: string | null;
+  onOpenSettings?: () => void;
   guide: boolean;
   /** Text to put back into the box (e.g. after a failed send); the key makes repeats distinct */
   restore?: { key: number; text: string } | null;
@@ -39,7 +40,7 @@ function defaultSpeechLang(): string {
   return SPEECH_LANGS.some((l) => l.code === nav) ? nav : "en-US";
 }
 
-export function ChatPanel({ messages, pending, busy, error, disabledReason, guide, restore, onGuideChange, onCollapse, onSend }: Props) {
+export function ChatPanel({ messages, pending, busy, error, disabledReason, onOpenSettings, guide, restore, onGuideChange, onCollapse, onSend }: Props) {
   const [text, setText] = useState("");
   const [stageOpen, setStageOpen] = useState(false);
   const [speechLang, setSpeechLang] = useState(defaultSpeechLang);
@@ -167,7 +168,17 @@ export function ChatPanel({ messages, pending, busy, error, disabledReason, guid
         {error && <div className="chat-error">{error}</div>}
         {speech.error && <div className="chat-error">{speech.error}</div>}
       </div>
-      {disabledReason && <div className="chat-warn">{disabledReason}</div>}
+      {disabledReason && (
+        <div className="chat-warn">
+          {disabledReason}
+          {onOpenSettings && (
+            <>
+              {" "}
+              <button className="link" onClick={onOpenSettings}>Open Settings</button>
+            </>
+          )}
+        </div>
+      )}
       <div className="chat-input">
         <button className="talk" onClick={openStage} title="Talk to the duck: type or speak on a full-screen stage">
           <DuckIcon size={22} />

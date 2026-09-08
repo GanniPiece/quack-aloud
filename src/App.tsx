@@ -4,6 +4,7 @@ import { Canvas } from "./components/Canvas";
 import { ChatPanel, type PendingMessage } from "./components/ChatPanel";
 import { DuckIcon } from "./components/DuckIcon";
 import { ProjectSwitcher } from "./components/ProjectSwitcher";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { Timeline } from "./components/Timeline";
 import { useGraph } from "./useGraph";
 
@@ -44,6 +45,10 @@ function writeSetting(key: string, value: string) {
 
 export default function App() {
   const [health, setHealth] = useState<HealthInfo | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const refreshHealth = useCallback(() => {
+    api.health().then(setHealth).catch(() => setHealth(null));
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Messages waiting for the duck: the first is in flight, the rest are queued
@@ -59,8 +64,8 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState<boolean>(() => readSetting<"open" | "closed">(CHAT_KEY, "open") === "open");
 
   useEffect(() => {
-    api.health().then(setHealth).catch(() => setHealth(null));
-  }, []);
+    refreshHealth();
+  }, [refreshHealth]);
 
   const selectCanvas = useCallback((next: CanvasRef | null) => {
     setSel(next);
@@ -279,7 +284,7 @@ export default function App() {
 
   const disabledReason =
     health && !health.keyConfigured
-      ? `No credentials for provider "${health.provider}". Chat is disabled, but you can still edit the canvas by hand or let Claude Code edit the project file.`
+      ? `No API key for provider "${health.provider}". Add one in Settings (top right). Until then you can still edit the canvas by hand or let Claude Code edit the project file.`
       : null;
 
   return (
@@ -306,12 +311,16 @@ export default function App() {
           <button role="tab" aria-selected={view === "timeline"} className={view === "timeline" ? "on" : ""} onClick={() => changeView("timeline")}>Timeline</button>
         </div>
         {health && (
-          <span className="pill" title={health.projectsDir}>
-            {health.provider} · {health.model}{health.effort ? ` · ${health.effort}` : ""}
-          </span>
+          <button className="pill as-button" title="Settings: provider, API key, model, effort" onClick={() => setSettingsOpen(true)}>
+            {health.provider} · {health.model}{health.effort ? ` · ${health.effort}` : ""}{health.keyConfigured ? "" : " · no key"}
+          </button>
         )}
+        <button className="ghost" onClick={() => setSettingsOpen(true)} title="Provider, API key, model, effort">
+          Settings
+        </button>
         <span className={`pill ${connected ? "ok" : "bad"}`}>{connected ? "live" : "disconnected"}</span>
       </header>
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} onSaved={refreshHealth} />}
       <main className={`body ${chatOpen ? "" : "chat-closed"}`}>
         {chatOpen && (
           <ChatPanel
@@ -320,6 +329,7 @@ export default function App() {
             busy={busy}
             error={error}
             disabledReason={disabledReason}
+            onOpenSettings={() => setSettingsOpen(true)}
             guide={guide}
             restore={restore}
             onGuideChange={changeGuide}

@@ -23,7 +23,7 @@ COPY server ./server
 COPY data/sample-graph.json ./data/sample-graph.json
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node
-VOLUME ["/data"]
+VOLUME ["/data"]   # projects, trash, and settings.json (API key) live here
 EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
   CMD wget -qO- http://127.0.0.1:8787/api/health >/dev/null || exit 1
