@@ -8,10 +8,12 @@
     "dev:server": "tsx watch server/index.ts",
     "dev:web": "vite",
     "build": "tsc --noEmit && vite build",
-    "start": "NODE_ENV=production tsx server/index.ts",
+    "start": "tsx server/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "docker:build": "docker build -t quack-aloud:local .",
+    "docker:run": "docker compose up --build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
@@ -21,6 +23,7 @@
     "express": "^5.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "tsx": "^4.19.3",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -30,7 +33,6 @@
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
-    "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "vite": "^6.2.1",
     "vitest": "^3.2.7"

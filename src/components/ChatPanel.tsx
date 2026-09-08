@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../../shared/graph";
 import { useSpeech } from "../useSpeech";
 import { DuckIcon } from "./DuckIcon";
+import { DuckStage, SPEECH_LANGS } from "./DuckStage";
 
 export interface PendingMessage {
   id: number;
@@ -24,10 +25,26 @@ interface Props {
   onSend: (text: string) => void;
 }
 
+const LANG_KEY = "quackaloud.speechLang";
+
+function defaultSpeechLang(): string {
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved) return saved;
+  } catch {
+    /* ignore */
+  }
+  const nav = navigator.language || "en-US";
+  if (nav.toLowerCase().startsWith("zh")) return nav.toLowerCase().includes("cn") ? "zh-CN" : "zh-TW";
+  return SPEECH_LANGS.some((l) => l.code === nav) ? nav : "en-US";
+}
+
 export function ChatPanel({ messages, pending, busy, error, disabledReason, guide, restore, onGuideChange, onCollapse, onSend }: Props) {
   const [text, setText] = useState("");
+  const [stageOpen, setStageOpen] = useState(false);
+  const [speechLang, setSpeechLang] = useState(defaultSpeechLang);
   const listRef = useRef<HTMLDivElement>(null);
-  const speech = useSpeech();
+  const speech = useSpeech(speechLang);
   // what was in the box when dictation started; the transcript is appended to it
   const dictationBase = useRef("");
 
@@ -46,25 +63,60 @@ export function ChatPanel({ messages, pending, busy, error, disabledReason, guid
     setText(base && speech.transcript ? `${base} ${speech.transcript}` : base || speech.transcript);
   }, [speech.transcript, speech.listening]);
 
-  const submit = () => {
+  const submit = useCallback(() => {
     const t = text.trim();
     if (!t) return;
     if (speech.listening) speech.stop();
     onSend(t);
     setText("");
-  };
+  }, [text, speech, onSend]);
 
-  const toggleDictation = () => {
+  const toggleDictation = useCallback(() => {
     if (speech.listening) {
       speech.stop();
       return;
     }
     dictationBase.current = text.trim();
     speech.start();
-  };
+  }, [speech, text]);
+
+  const openStage = useCallback(() => setStageOpen(true), []);
+
+  const closeStage = useCallback(() => {
+    if (speech.listening) speech.stop();
+    setStageOpen(false);
+  }, [speech]);
+
+  const changeLang = useCallback((lang: string) => {
+    setSpeechLang(lang);
+    try {
+      localStorage.setItem(LANG_KEY, lang);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const lastReply = [...messages].reverse().find((m) => m.role === "assistant")?.content ?? null;
 
   return (
     <aside className="chat">
+      {stageOpen && (
+        <DuckStage
+          text={text}
+          onTextChange={setText}
+          reply={lastReply}
+          busy={busy || pending.length > 0}
+          guide={guide}
+          speechSupported={speech.supported}
+          listening={speech.listening}
+          level={speech.level}
+          lang={speechLang}
+          onLangChange={changeLang}
+          onToggleMic={toggleDictation}
+          onSend={submit}
+          onClose={closeStage}
+        />
+      )}
       <div className="chat-head">
         <button className="collapse" onClick={onCollapse} title="Hide the chat panel" aria-label="Hide the chat panel">
           ‹
@@ -117,39 +169,13 @@ export function ChatPanel({ messages, pending, busy, error, disabledReason, guid
       </div>
       {disabledReason && <div className="chat-warn">{disabledReason}</div>}
       <div className="chat-input">
-        <textarea
-          value={text}
-          placeholder={speech.listening ? "Listening… speak, then press Enter to send" : "What's on your mind? (Enter to send, Shift+Enter for a new line)"}
-          rows={3}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-        />
-        <div className="chat-actions">
-          {speech.supported && (
-            <button
-              type="button"
-              className={`mic ${speech.listening ? "on" : ""}`}
-              onClick={toggleDictation}
-              title={speech.listening ? "Stop dictation" : `Dictate (${speech.lang})`}
-              aria-label={speech.listening ? "Stop dictation" : "Start dictation"}
-              aria-pressed={speech.listening}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" />
-                <path d="M5 11a7 7 0 0 0 14 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <path d="M12 18v3M9 21h6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </button>
-          )}
-          <button onClick={submit} disabled={!text.trim()}>
-            {busy || pending.length ? "Queue" : "Send"}
-          </button>
-        </div>
+        <button className="talk" onClick={openStage} title="Talk to the duck: type or speak on a full-screen stage">
+          <DuckIcon size={22} />
+          <span>
+            <b>Talk to the duck</b>
+            <small>{text.trim() ? `Draft: ${text.trim().slice(0, 40)}${text.trim().length > 40 ? "…" : ""}` : "Type or speak, full screen"}</small>
+          </span>
+        </button>
       </div>
     </aside>
   );

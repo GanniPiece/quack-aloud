@@ -13,6 +13,7 @@ Not in this document:
 
 | Scenario | What happens |
 |---|---|
+| ![Talking to the duck on the full-screen stage](docs/demo-talk.gif) | **Talking to the duck**. "Talk to the duck" opens the stage: type (or dictate) under a big duck, send, watch it think, and read the reply right there; back on the canvas the new cards are already filed. Here it questions the cause-and-effect in "after the omen, two families moved away" |
 | ![Plotting a story with AI guidance on](docs/demo-novel.gif) | **Plotting a story** (guidance on). Three fragments of a mystery go in; the duck files people, events, and claims, picks the Timeline layout, and when the third message jumps from "she saw a cat" to "so he was telling the truth", it pushes back with a challenge card |
 | ![Learning a new topic, guidance off then on](docs/demo-learning.gif) | **Learning something new** (guidance off, then on). Notes about TOPS become a mind map with intermediate concepts; switching guidance on and stating "higher TOPS always means faster" earns a challenge about INT8 vs FP16 and memory bandwidth |
 
@@ -38,6 +39,20 @@ Not in this document:
 
 To try the canvas without an API key, use "Import" (top right of the canvas) on `data/sample-graph.json`; it becomes a new project.
 
+## Run with Docker
+
+One image serves the API and the built UI on port 8787; projects live on a volume.
+
+| Step | Command | Note |
+|---|---|---|
+| 1 | `cp .env.example .env` and fill in `ANTHROPIC_API_KEY` | The container reads `.env` through `docker compose` |
+| 2 | `docker compose up --build` | Builds the image and starts it; open http://localhost:8787 |
+| 3 | Data is in `./data/docker/` on the host | `projects/`, `trash/`, backups. Mount any other path at `/data` if you prefer |
+
+Without compose: `docker build -t quack-aloud .` then `docker run -p 8787:8787 -e ANTHROPIC_API_KEY=... -v $PWD/data/docker:/data quack-aloud`.
+
+Kubernetes: `deploy/k8s/quack-aloud.yaml` is a minimal Deployment + Service + PVC. State is files, so it runs as one replica with a ReadWriteOnce volume (`strategy: Recreate`), and the API key comes from a Secret. Put it behind an Ingress with authentication before exposing it: every message costs API credit. `fs.watch` (which drives live updates) does not fire on some network filesystems; use a block volume, not NFS.
+
 ## Using a coding agent as the duck (no API key)
 
 Claude Code and Google Antigravity can play the duck by editing the open project file directly. The canvas and the in-app chat update live, and the cost is the agent's own plan, not an API key.
@@ -61,6 +76,7 @@ Both routes and the in-app chat write the same files, so they can be mixed. Avoi
 | `CLAUDE_MODEL` | `claude-opus-5` | **Optional** |
 | `CLAUDE_EFFORT` | `medium` | **Optional**. `low` / `medium` / `high` / `xhigh` / `max`. Higher is slower and costs more |
 | `API_PORT` | `8787` | **Optional**. The Vite dev server proxies `/api` to this port |
+| `DATA_DIR` | `./data` | **Optional**. Folder holding `projects/` and `trash/`. The Docker image sets `/data` |
 
 ## Projects
 
@@ -84,7 +100,8 @@ Both routes and the in-app chat write the same files, so they can be mixed. Avoi
 |---|---|
 | Your message appears at once, marked "Sending…" | Replaced by the saved copy when the duck answers |
 | Keep typing while the duck thinks | Enter or "Queue" adds the message to a queue; messages are sent one at a time in order. If a send fails, the failed message and everything queued behind it go back into the box |
-| Dictation | The microphone button next to Send uses the browser's speech recognition (Chrome, Edge, Safari). Speak, watch the text appear, press Enter. Language follows the browser's language; the button is hidden where the API is not available |
+| Talk to the duck | "Talk to the duck" at the bottom of the chat opens a full-screen stage: a big duck, its latest reply under it, and a large box where you type or dictate. Enter sends (the stage stays open and the duck answers there), Shift+Enter is a new line, Esc goes back to the canvas |
+| Dictation | "Speak" on the stage uses the browser's speech recognition (Chrome, Edge, Safari). The duck bobs and grows with your voice and the words appear in the box as you talk. Pick the language next to the button (Default: 中文（台灣） on a Chinese browser, otherwise the browser's language); the choice is remembered. Hidden where the API is not available |
 
 ## Using the canvas
 
@@ -118,7 +135,8 @@ Both routes and the in-app chat write the same files, so they can be mixed. Avoi
 |---|---|
 | `npm run dev` | API server + Vite with hot reload |
 | `npm run build` | Typecheck, then build the UI into `dist/` |
-| `npm start` | Serve API and the built UI from one process on `API_PORT` |
+| `npm start` | Serve API and the built UI from one process on `API_PORT` (run `npm run build` first) |
+| `npm run docker:build` / `npm run docker:run` | Build the image / build and start with compose |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Unit tests (Vitest) for the graph merge logic, prompt assembly, and the four layouts. `npm run test:watch` re-runs on change |
 

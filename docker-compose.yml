@@ -1,0 +1,13 @@
+services:
+  quack-aloud:
+    build: .
+    image: quack-aloud:local
+    ports:
+      - "8787:8787"
+    env_file:
+      - .env            # ANTHROPIC_API_KEY and any overrides
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - ./data/docker:/data   # projects, trash, and backups live here on the host
+    restart: unless-stopped

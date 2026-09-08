@@ -11,6 +11,7 @@ Quack Aloud 是一個帶畫布的「橡皮鴨除錯法」工具。你在聊天�
 
 | 情境 | 發生什麼 |
 |---|---|
+| ![滿版跟鴨子說話](docs/demo-talk.gif) | **跟鴨子說話**。按「Talk to the duck」進舞台：在大鴨子下面打字（或用說的）、送出、看牠思考、回覆直接出現在牠下面；回到畫布時新卡片已經歸好。這段裡牠質疑「凶兆傳開之後兩戶人家搬走」的因果方向 |
 | ![小說構思，引導開](docs/demo-novel.gif) | **構思故事**（guidance 開）。丟進三段懸疑故事的片段；鴨子把人物、事件、說法各自歸檔，自動選用 Timeline 版面，第三句從「她看過貓」跳到「所以他沒說謊」時，鴨子用一張 challenge 卡回嘴 |
 | ![學新事物，引導先關後開](docs/demo-learning.gif) | **學新東西**（guidance 先關後開）。關於 TOPS 的筆記變成有中介概念的心智圖；開啟 guidance 後說「TOPS 越高一定越快」，被質疑 INT8 與 FP16 基準不同、還要看記憶體頻寬 |
 
@@ -36,6 +37,20 @@ Quack Aloud 是一個帶畫布的「橡皮鴨除錯法」工具。你在聊天�
 
 沒有 API key 也可以試畫布：用畫布右上角的 Import 匯入 `data/sample-graph.json`，它會變成一個新專案。
 
+## 用 Docker 執行
+
+一個 image 同時在 8787 服務 API 和 build 好的 UI；專案資料放在 volume。
+
+| 步驟 | 指令 | Note |
+|---|---|---|
+| 1 | `cp .env.example .env`，填入 `ANTHROPIC_API_KEY` | container 透過 `docker compose` 讀 `.env` |
+| 2 | `docker compose up --build` | 建 image 並啟動；開 http://localhost:8787 |
+| 3 | 資料在 host 的 `./data/docker/` | `projects/`、`trash/`、備份。要放別的路徑就掛到 `/data` |
+
+不用 compose 的話：`docker build -t quack-aloud .`，然後 `docker run -p 8787:8787 -e ANTHROPIC_API_KEY=... -v $PWD/data/docker:/data quack-aloud`。
+
+Kubernetes：`deploy/k8s/quack-aloud.yaml` 是最小的 Deployment + Service + PVC。狀態是檔案，所以只能單一 replica 配 ReadWriteOnce volume（`strategy: Recreate`），API key 從 Secret 來。對外開放前一定要放在有認證的 Ingress 後面，因為每則訊息都花 API 額度。驅動即時更新的 `fs.watch` 在某些網路檔案系統上不會觸發，請用 block volume，不要用 NFS。
+
 ## 讓 coding agent 當鴨子（不用 API key）
 
 Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演鴨子。畫布和 app 內的聊天欄都會即時更新，費用算在 agent 自己的方案，不是 API key。
@@ -59,6 +74,7 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 | `CLAUDE_MODEL` | `claude-opus-5` | **Optional** |
 | `CLAUDE_EFFORT` | `medium` | **Optional**。`low` / `medium` / `high` / `xhigh` / `max`。越高越慢也越貴 |
 | `API_PORT` | `8787` | **Optional**。Vite dev server 會把 `/api` 代理到這個 port |
+| `DATA_DIR` | `./data` | **Optional**。放 `projects/` 和 `trash/` 的資料夾。Docker image 設為 `/data` |
 
 ## 專案
 
@@ -82,7 +98,8 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 |---|---|
 | 訊息送出立刻顯示，標「Sending…」 | 鴨子回覆後換成存檔的那一則 |
 | 鴨子思考中可以繼續打字 | Enter 或「Queue」把訊息排進佇列，一次送一則、依序處理。某一則失敗時，它和排在後面的都會退回輸入框 |
-| 語音輸入 | Send 旁的麥克風按鈕用瀏覽器內建的語音辨識（Chrome、Edge、Safari）。開口說，看文字出現，按 Enter。語言跟隨瀏覽器；不支援的瀏覽器不會顯示按鈕 |
+| 跟鴨子說話 | 聊天欄最下方的「Talk to the duck」打開滿版舞台：一隻大鴨子、牠最新的回覆在下面、一個大輸入框可以打字或說話。Enter 送出（舞台不關，鴨子直接在這裡回）、Shift+Enter 換行、Esc 回到畫布 |
+| 語音輸入 | 舞台上的「Speak」用瀏覽器內建的語音辨識（Chrome、Edge、Safari）。鴨子會隨你的音量跳動放大，說的話即時出現在輸入框。按鈕旁可選辨識語言（Default：中文瀏覽器是「中文（台灣）」，否則跟隨瀏覽器語言），選擇會記住。不支援的瀏覽器不會顯示 |
 
 ## 使用畫布
 
@@ -116,7 +133,8 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 |---|---|
 | `npm run dev` | API server 加 Vite，含 hot reload |
 | `npm run build` | 先 typecheck，再把 UI build 到 `dist/` |
-| `npm start` | 用一個 process 在 `API_PORT` 同時服務 API 和 build 好的 UI |
+| `npm start` | 用一個 process 在 `API_PORT` 同時服務 API 和 build 好的 UI（先跑 `npm run build`） |
+| `npm run docker:build` / `npm run docker:run` | 建 image / 用 compose 建並啟動 |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Vitest 單元測試：graph 合併邏輯、prompt 組裝、四種版面。`npm run test:watch` 會在檔案變動時重跑 |
 
