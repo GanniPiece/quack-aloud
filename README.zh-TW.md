@@ -29,7 +29,8 @@ Quack Aloud 是帶畫布的橡皮鴨除錯法：你對一隻鴨子把想法說�
 | `server/` | 跑在 `API_PORT` 的 Express API | 監看 `data/projects/`，每次變動用 SSE（`/api/events`）推給瀏覽器 |
 | `server/providers/` | LLM 後端 | 用 `PROVIDER` 切換。目前只有 `claude` |
 | `src/` | Vite + React + React Flow 的 UI | 左邊聊天、右邊畫布 |
-| `CLAUDE.md`、`.agents/` | 讓 coding agent 不用 API key 就能當鴨子的規則 | Claude Code 讀 `CLAUDE.md`；Google Antigravity 讀 `.agents/rules/quack-aloud.md`，並從 `.agents/workflows/duck.md` 取得 `/duck` workflow。跑 `npm run dev`、在瀏覽器開好專案，再把想法打給 agent（兩邊都可用 `/duck …`；Claude Code 直接打字也行；加「guide」或「引導」會得到追問與質疑）。它會改專案檔，畫布即時更新，費用走 agent 自己的方案而不是 Gemini 或 Claude 的 API key |
+| `server/mcp.ts`、`server/mcpHttp.ts` | 鴨子的 MCP server：五個工具，走 stdio 或 HTTP 的 `/mcp` | 讓 Claude Code、Antigravity 或任何 MCP client 透過 `duck_turn` 歸檔卡片，用 agent 自己的方案、不需 API key。見下方「MCP server」 |
+| `CLAUDE.md`、`.agents/` | 讓 coding agent 當鴨子的規則 | Claude Code 讀 `CLAUDE.md`；Antigravity 讀 `.agents/rules/quack-aloud.md` 並取得 `/duck` workflow。兩者都優先用 MCP 工具，沒有才退回改專案檔 |
 
 ## 開始使用
 
@@ -71,21 +72,24 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 
 ### MCP server（給 agent 用，建議走這條）
 
-`server/mcp.ts` 是一個 stdio 的 MCP server，提供五個工具：`list_projects`、`read_canvas`、`create_project`、`create_canvas`、`duck_turn`。agent 讀畫布、決定怎麼拆，再把拆解結果交給 `duck_turn`，由它套用和 app 內聊天完全相同的合併邏輯（擺位、id 撞名、階層、對話紀錄、organise 模式過濾）。不用手寫座標或 JSON、不用 API key、不用登入：它直接讀寫專案檔，畫布即時更新。
+app 本身也是一個 MCP server。agent 拿到五個工具：`list_projects`、`read_canvas`、`create_project`、`create_canvas`、`duck_turn`。它讀畫布、決定怎麼拆，再把拆解結果交給 `duck_turn`，由它套用和 app 內聊天完全相同的合併邏輯（擺位、id 撞名、階層、對話紀錄、organise 模式過濾）。不用手寫座標或 JSON。server 的 instructions 帶著和聊天 prompt 相同的整理規則，任何 MCP client 連上就知道怎麼當鴨子。
+
+兩種傳輸提供同一組工具，依 agent 和 app 的相對位置選：
+
+| 傳輸 | 適用 | 怎麼跑 | 認證 |
+|---|---|---|---|
+| **HTTP**：API port 上的 `/mcp` | 預設。app 正在跑（`npm run dev`、Docker、Kubernetes），本機或別台都行；多個 agent 共用一個端點 | 是 app 行程的一部分，不用另外啟動 | Settings › MCP access（只有 owner 看得到）的 bearer token。`MCP_TOKEN` 可固定它；外洩就在 Settings 換一個。token 等於所有專案的讀寫權，離開 localhost 請走 HTTPS |
+| **stdio**：`npx tsx server/mcp.ts` | agent 和這個 repo、`data/` 在同一台機器，app 可以沒在跑 | MCP client 把它當子行程啟動、用完停掉；直接改專案檔 | 不需要，本來就只在本機 |
 
 | Client | 設定 |
 |---|---|
-| Claude Code | 不用設定：repo 裡的 `.mcp.json` 已登記為 `quack-aloud`，Claude Code 詢問時核准即可。在別的目錄可以用 `claude mcp add quack-aloud -- npx tsx server/mcp.ts`（在這個資料夾執行，或設 `DATA_DIR`） |
-| Antigravity 與其他 MCP client | 新增一個 stdio server，指令 `npx tsx server/mcp.ts`，工作目錄設為這個資料夾 |
+| Claude Code，HTTP | Settings › MCP access ›「copy the add command」貼上：`claude mcp add --transport http quack-aloud http://localhost:8787/mcp --header "Authorization: Bearer <token>"`（遠端的話換成實際 host） |
+| Claude Code，stdio | 不用設定：repo 裡的 `.mcp.json` 已登記 `quack-aloud`，詢問時核准即可。在別的資料夾：`claude mcp add quack-aloud -- npx tsx server/mcp.ts`（在這個資料夾執行，或設 `DATA_DIR`） |
+| Antigravity | Customizations › MCP：新增 HTTP server `http://localhost:8787/mcp`，header 帶 `Authorization: Bearer <token>`；或 stdio server，指令 `npx tsx server/mcp.ts`、工作目錄設這個資料夾 |
+| 其他 MCP client | 同上兩種；端點是無狀態的 Streamable HTTP |
+| Docker 而 host 沒有 Node | 用 HTTP（container 本身提供 `/mcp`）。`.mcp.docker.json` 是替代方案，透過 `docker compose exec` 在 container 裡跑 stdio server |
 
-同一組工具也由 app 本身透過 HTTP 提供，所以會跟 `npm run dev`、Docker、Kubernetes 一起啟動，遠端的 agent 也連得上：
-
-| 傳輸 | 適用 | 設定 |
-|---|---|---|
-| stdio（`npx tsx server/mcp.ts`） | agent 和 repo、資料在同一台機器 | `.mcp.json`（Claude Code 會自動讀），或用 `.mcp.docker.json` 透過 `docker compose exec` 在 container 裡跑 |
-| HTTP（API port 上的 `/mcp`） | app 跑在別處（另一台機器的 Docker、Kubernetes），或想讓多個 agent 共用一個端點 | Settings › MCP access（只有 owner 看得到）顯示 bearer token 和可直接貼的 `claude mcp add --transport http …` 指令。想固定 token 就設 `MCP_TOKEN`；外洩時在 Settings 換一個。拿到 token 的人能讀寫所有專案，所以端點要放在 HTTPS 後面 |
-
-測試：`npm test` 涵蓋工具邏輯（`server/mcp.test.ts`）和協定本身（`server/mcp.protocol.test.ts` 用 SDK 的 client 透過記憶體傳輸連上 server，跑 handshake、工具清單、schema 驗證、呼叫）。要手動試，`npx @modelcontextprotocol/inspector npx tsx server/mcp.ts` 會開一個網頁介面可以逐一呼叫工具；在 Claude Code 裡，於這個資料夾開新對話後打 `/mcp` 應該看到 `quack-aloud`。
+測試：`npm test` 涵蓋工具邏輯（`server/mcp.test.ts`）、記憶體傳輸上的協定（`server/mcp.protocol.test.ts`）、以及帶 token 的 HTTP 端點（`server/mcp.http.test.ts`，會在隨機 port 起整個 app）。手動：`npx @modelcontextprotocol/inspector` 指向 `http://localhost:8787/mcp` 並帶 bearer header，或指向 stdio 指令 `npx tsx server/mcp.ts`；在 Claude Code 開新對話後打 `/mcp` 應該看到 `quack-aloud`。
 
 兩條路和 app 內的聊天寫的是同一批檔案，可以混用。避免在 agent 寫檔的同一刻在瀏覽器拖卡片；瀏覽器會拒絕過期的寫入並顯示「canvas changed elsewhere」。
 
