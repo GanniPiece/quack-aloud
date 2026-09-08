@@ -9,9 +9,9 @@ Quack Aloud 是一個帶畫布的「橡皮鴨除錯法」工具。你在聊天�
 
 ## 為什麼做這個
 
-大多數 AI 工具把思考的順序倒過來：你提問、模型作答，然後你去檢查一份不是自己做的功課。Quack Aloud 維持 Terence Tao 談數學與 AI 合作時描述的分工：定理的敘述由人來寫、或至少仔細審過，方向由人掌握，由上而下；證明和例行的、由下而上的部分才交給自動化工具。[^tao] 在這裡，這個分工就是整個介面。你負責把想法說出來；鴨子只把它拆成人物、事件、說法，歸類、畫出關係，你要求的話再指出缺口、提出質疑。它從不替你想出那個想法。最後你得到的是自己的理解，攤開來讓你看見哪裡還薄。
+大多數 AI 工具把思考的順序倒過來：你提問、模型作答，然後你去檢查一份不是自己做的功課。Quack Aloud 借用了 Terence Tao 談數學與 AI 合作時的兩個工作習慣。[^tao] 第一，內容本身留給人：定理的敘述由數學家自己寫、或至少仔細審過，只把機械的部分交出去。在這裡，想法由你說出來，鴨子只負責歸檔：把你說的拆成人物、事件、說法，歸類、畫出關係，並保留每張卡對應的原句片段，讓你每一張都能對回去。第二，AI 最有用的用法是 red-team 你自己的工作；其他用途要限制在你自己也能 red-team 檢驗的範圍。guidance 關閉時，鴨子做的每件事你都能一眼核對；打開時，它專找矛盾、沒說出口的假設、從證據跳到結論的地方，並直接說出來。它從不替你想出那個想法。最後你得到的是自己的理解，攤開來讓你看見哪裡還薄。
 
-[^tao]: Terence Tao，[〈Mathematical methods and human thought in the age of AI〉](https://terrytao.wordpress.com/2026/03/29/mathematical-methods-and-human-thought-in-the-age-of-ai/)（部落格，2026 年 3 月 29 日）：定理的敘述由人產生或仔細審閱，證明可以交給自動化工具；AI 的使用應限制在自己還能「red team」檢驗的範圍。以及他在 ICM 2026 的公開演講 [〈Mathematics in the age of AI〉](https://mathstodon.xyz/@tao/116977934921819775)（2026 年 7 月）。他本人整理的 AI 觀點總覽在 [teorth.github.io/tao-web/ai-views.html](https://teorth.github.io/tao-web/ai-views.html)。「由上而下」是我們的措辭。
+[^tao]: Terence Tao，[〈Mathematical methods and human thought in the age of AI〉](https://terrytao.wordpress.com/2026/03/29/mathematical-methods-and-human-thought-in-the-age-of-ai/)（部落格，2026 年 3 月 29 日）：形式化定理的敘述應由人產生、或至少仔細審閱，證明可以交給自動化工具；AI 的使用最好限制在 red-team 自己的工作，或是自己有能力 red-team 的「blue-team」工作。另見他在 ICM 2026 的公開演講 [〈Mathematics in the age of AI〉](https://mathstodon.xyz/@tao/116977934921819775)（2026 年 7 月）與他本人整理的 [AI 觀點總覽](https://teorth.github.io/tao-web/ai-views.html)。他談的是證明；這個工具只是借用那兩個習慣。
 
 ## Demo
 
