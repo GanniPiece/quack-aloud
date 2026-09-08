@@ -47,11 +47,11 @@ One image serves the API and the built UI on port 8787; projects live on a volum
 |---|---|---|
 | 1 | `cp .env.example .env` and fill in `ANTHROPIC_API_KEY` | The container reads `.env` through `docker compose` |
 | 2 | `docker compose up --build` | Builds the image and starts it; open http://localhost:8787 |
-| 3 | Data is in `./data/docker/` on the host | `projects/`, `trash/`, backups. Mount any other path at `/data` if you prefer |
+| 3 | Data is the same `./data/` folder the dev server uses | `projects/`, `trash/`, backups. The Claude Code and Antigravity routes keep working: they edit `data/projects/<id>.json` on the host and the container's watcher picks it up (verified on Docker Desktop for Mac; on Linux the files are owned by uid 1000). Mount any other path at `/data` if you prefer |
 
-Without compose: `docker build -t quack-aloud .` then `docker run -p 8787:8787 -e ANTHROPIC_API_KEY=... -v $PWD/data/docker:/data quack-aloud`.
+Without compose: `docker build -t quack-aloud .` then `docker run -p 8787:8787 -e ANTHROPIC_API_KEY=... -v $PWD/data:/data quack-aloud`.
 
-Kubernetes: `deploy/k8s/quack-aloud.yaml` is a minimal Deployment + Service + PVC. State is files, so it runs as one replica with a ReadWriteOnce volume (`strategy: Recreate`), and the API key comes from a Secret. Put it behind an Ingress with authentication before exposing it: every message costs API credit. `fs.watch` (which drives live updates) does not fire on some network filesystems; use a block volume, not NFS.
+Kubernetes: `deploy/k8s/quack-aloud.yaml` is a minimal Deployment + Service + PVC. State is files, so it runs as one replica with a ReadWriteOnce volume (`strategy: Recreate`), and the API key comes from a Secret. Put it behind an Ingress with authentication before exposing it: every message costs API credit. `fs.watch` (which drives live updates) does not fire on some network filesystems; use a block volume, not NFS. The coding-agent routes need the files on the same machine as the agent, so they are for local Docker, not for a cluster.
 
 ## Using a coding agent as the duck (no API key)
 
