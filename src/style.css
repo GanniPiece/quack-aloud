@@ -240,6 +240,7 @@ button.link { font: inherit; font-size: inherit; color: #8a6d0b; background: non
 }
 .notice button.danger { border-color: var(--danger); color: #fff; background: var(--danger); }
 .toolbar button:disabled { opacity: 0.4; cursor: default; }
+.toolbar .auto-tidy { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); cursor: pointer; }
 .toolbar-sep { width: 1px; height: 18px; background: var(--line); margin: 0 2px; }
 .layout-pick { display: inline-flex; align-items: center; gap: 6px; }
 .layout-pick select {

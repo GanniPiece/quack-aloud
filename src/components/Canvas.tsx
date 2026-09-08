@@ -28,6 +28,7 @@ import {
   type LayoutKind,
   type ThoughtNode as GraphNode,
 } from "../../shared/graph";
+import { additionsFromOutside } from "../autoTidy";
 import { applyLayout, effectiveLayout, layeredLayout, mindmapTree, mindmapTreeEdgeIds, type Sizes } from "../layout";
 import { ClusterNode, type ClusterRFNode } from "./ClusterNode";
 import { RoutedEdge, type RoutedRFEdge } from "./RoutedEdge";
@@ -44,11 +45,19 @@ const NEW_CARD_PLACEHOLDER = "New card";
 
 type AnyNode = ThoughtRFNode | ClusterRFNode | AxisRFNode;
 
+const AUTO_TIDY_KEY = "quackaloud.autoTidy";
+
+function readAutoTidy(): boolean {
+  try {
+    return localStorage.getItem(AUTO_TIDY_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
 interface Props {
   graph: Graph;
   freshSince: number;
-  /** Changes after every duck turn; triggers a re-layout when the layout is not "themes" */
-  relayoutToken: number;
   update: (fn: (g: Graph) => Graph) => void;
   onReset: () => void;
   onExport: () => void;
@@ -174,7 +183,7 @@ function toRFEdges(graph: Graph, extras: EdgeExtras = {}): (Edge | RoutedRFEdge)
   });
 }
 
-function CanvasInner({ graph, freshSince, relayoutToken, update, onReset, onExport, onImport }: Props) {
+function CanvasInner({ graph, freshSince, update, onReset, onExport, onImport }: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
   const { screenToFlowPosition, fitView, getInternalNode } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -183,6 +192,20 @@ function CanvasInner({ graph, freshSince, relayoutToken, update, onReset, onExpo
   const rootId = useMemo(() => (layout === "mindmap" ? mindmapTree(graph)?.rootId : undefined), [graph, layout]);
   const [editing, setEditing] = useState<Editing | undefined>(undefined);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [autoTidy, setAutoTidy] = useState(readAutoTidy);
+  // cards this browser added itself (double-click): never a reason to re-tidy
+  const localAdds = useRef(new Set<string>());
+  const seenIds = useRef<string[] | null>(null);
+  const [tidyPending, setTidyPending] = useState(0);
+
+  const changeAutoTidy = (on: boolean) => {
+    setAutoTidy(on);
+    try {
+      localStorage.setItem(AUTO_TIDY_KEY, on ? "on" : "off");
+    } catch {
+      /* ignore */
+    }
+  };
 
   /** Commit or cancel an inline edit. A draft is only added to the graph when it gets a label. */
   const finishEdit = useCallback(
@@ -194,6 +217,7 @@ function CanvasInner({ graph, freshSince, relayoutToken, update, onReset, onExpo
       if (!text) return;
       if (cur.draft) {
         const node = { ...cur.draft, label: text };
+        localAdds.current.add(node.id);
         update((g) => ({ ...g, nodes: [...g.nodes, node] }));
       } else {
         update((g) => ({ ...g, nodes: g.nodes.map((n) => (n.id === cur.id ? { ...n, label: text } : n)) }));
@@ -398,14 +422,43 @@ function CanvasInner({ graph, freshSince, relayoutToken, update, onReset, onExpo
     [update, measuredSizes],
   );
 
-  // After a duck turn the server places cards in theme columns; re-arrange once the new cards are measured
-  const appliedToken = useRef(relayoutToken);
+  // Auto-tidy: whenever cards arrive from outside this browser (the duck in the chat, an agent
+  // over MCP, Claude Code editing the file), re-arrange in the current layout once they are
+  // measured. Cards you add by hand and plain drags never trigger it.
   useEffect(() => {
-    if (relayoutToken === appliedToken.current || !nodesInitialized || layout === "themes") return;
-    appliedToken.current = relayoutToken;
-    const t = setTimeout(() => doLayout(layout), 0);
+    const ids = graph.nodes.map((n) => n.id);
+    const added = additionsFromOutside(seenIds.current, ids, localAdds.current);
+    seenIds.current = ids;
+    if (added.length > 0 && autoTidy) setTidyPending((n) => n + 1);
+  }, [graph.nodes, autoTidy]);
+
+  // Run the pending tidy once the new cards have been measured. Marking it done only when it
+  // actually runs matters: an earlier version marked it done first and scheduled a timer, and
+  // the next render (which flips nodesInitialized to false while React Flow measures) cleared
+  // that timer, so nothing ran. If measurement never comes (hidden tab), run anyway after a second.
+  const tidyState = useRef({ done: 0, sawMeasuring: false });
+  useEffect(() => {
+    const st = tidyState.current;
+    if (tidyPending === st.done) return;
+    const run = () => {
+      if (tidyState.current.done === tidyPending) return;
+      tidyState.current.done = tidyPending;
+      tidyState.current.sawMeasuring = false;
+      doLayout(layout);
+    };
+    if (!nodesInitialized) {
+      st.sawMeasuring = true;
+      const t = setTimeout(run, 1000);
+      return () => clearTimeout(t);
+    }
+    if (st.sawMeasuring) {
+      run();
+      return;
+    }
+    // initialized and never saw measuring: the new cards may not have reached React Flow yet
+    const t = setTimeout(run, 300);
     return () => clearTimeout(t);
-  }, [relayoutToken, nodesInitialized, layout, doLayout]);
+  }, [tidyPending, nodesInitialized, layout, doLayout]);
 
   const counts = useMemo(() => {
     const user = graph.nodes.filter((n) => n.origin === "user").length;
@@ -457,6 +510,9 @@ function CanvasInner({ graph, freshSince, relayoutToken, update, onReset, onExpo
           </select>
         </label>
         <button onClick={() => doLayout()} disabled={graph.nodes.length === 0}>Tidy</button>
+        <label className="auto-tidy" title="Re-arrange in the current layout whenever the duck or an agent adds cards">
+          <input type="checkbox" checked={autoTidy} onChange={(e) => changeAutoTidy(e.target.checked)} /> Auto
+        </label>
         <span className="toolbar-sep" />
         <button onClick={onExport} disabled={graph.nodes.length === 0 && graph.messages.length === 0}>Export</button>
         <button onClick={() => fileInput.current?.click()}>Import</button>
