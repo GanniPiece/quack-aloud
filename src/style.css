@@ -96,6 +96,46 @@ body { background: var(--bg); }
 .chat-input .mic:hover { border-color: var(--accent); color: var(--text); }
 .chat-input .mic.on { background: #fdecea; border-color: var(--danger); color: var(--danger); animation: pulse 1.2s ease-in-out infinite; }
 
+/* ---------- talk-to-the-duck stage (while dictating) ---------- */
+.duck-stage {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: radial-gradient(circle at 50% 40%, #fff7d6 0%, #f7f6f2 55%, #efece4 100%);
+  animation: stage-in 0.25s ease-out;
+}
+@keyframes stage-in { from { opacity: 0; } to { opacity: 1; } }
+.duck-stage-duck {
+  position: relative; z-index: 2; transform-origin: 50% 80%;
+  transition: transform 0.08s ease-out;
+  animation: duck-bob 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 18px 24px rgba(120, 90, 0, 0.18));
+}
+@keyframes duck-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+.duck-stage-ring {
+  position: absolute; z-index: 1; width: 380px; height: 380px; border-radius: 50%;
+  top: calc(50% - 300px); left: calc(50% - 190px);
+  background: radial-gradient(circle, rgba(226, 185, 59, 0.35) 0%, rgba(226, 185, 59, 0) 70%);
+  transition: transform 0.08s ease-out, opacity 0.08s ease-out; pointer-events: none;
+}
+.duck-stage-text {
+  position: relative; z-index: 2; max-width: min(760px, 86vw); margin: 0; text-align: center;
+  font-size: 26px; line-height: 1.5; color: var(--text); white-space: pre-wrap; word-break: break-word;
+}
+.duck-stage-text.empty { color: var(--muted); animation: pulse 1.6s ease-in-out infinite; }
+.duck-stage-actions { position: relative; z-index: 2; display: flex; gap: 12px; }
+.duck-stage-actions button {
+  font: inherit; font-size: 15px; font-weight: 600; padding: 10px 18px; border-radius: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.duck-stage-actions .ghost { background: #fff; border: 1px solid var(--line); color: var(--text); }
+.duck-stage-actions .primary { background: var(--accent); border: 0; color: #2b2a26; }
+.duck-stage-actions button:disabled { opacity: 0.5; cursor: default; }
+.duck-stage-actions kbd {
+  font: inherit; font-size: 11px; padding: 1px 6px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.07); color: var(--muted);
+}
+.duck-stage-hint { position: relative; z-index: 2; margin: 0; font-size: 12px; color: var(--muted); }
+
 /* ---------- canvas ---------- */
 .canvas { position: relative; min-width: 0; }
 .loading { display: grid; place-items: center; height: 100%; color: var(--muted); }

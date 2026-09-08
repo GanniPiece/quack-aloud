@@ -84,7 +84,7 @@ Both routes and the in-app chat write the same files, so they can be mixed. Avoi
 |---|---|
 | Your message appears at once, marked "Sending…" | Replaced by the saved copy when the duck answers |
 | Keep typing while the duck thinks | Enter or "Queue" adds the message to a queue; messages are sent one at a time in order. If a send fails, the failed message and everything queued behind it go back into the box |
-| Dictation | The microphone button next to Send uses the browser's speech recognition (Chrome, Edge, Safari). Speak, watch the text appear, press Enter. Language follows the browser's language; the button is hidden where the API is not available |
+| Dictation | The microphone button next to Send uses the browser's speech recognition (Chrome, Edge, Safari). While you talk the whole window becomes the duck: it bobs with your voice, the words appear under it, Enter sends, Esc cancels. Language follows the browser's language; the button is hidden where the API is not available |
 
 ## Using the canvas
 

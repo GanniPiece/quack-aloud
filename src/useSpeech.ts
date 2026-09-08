@@ -28,6 +28,8 @@ export interface SpeechState {
   listening: boolean;
   /** Text recognised so far in this session: final parts plus the current interim guess */
   transcript: string;
+  /** Microphone loudness 0..1 while listening, for the duck to react to */
+  level: number;
   error: string | null;
   lang: string;
   start: () => void;
@@ -44,11 +46,54 @@ export function useSpeech(lang: string = navigator.language || "en-US"): SpeechS
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [level, setLevel] = useState(0);
   const rec = useRef<SpeechRecognitionLike | null>(null);
+  const meter = useRef<{ ctx: AudioContext; stream: MediaStream; raf: number } | null>(null);
+
+  const stopMeter = useCallback(() => {
+    const m = meter.current;
+    meter.current = null;
+    if (!m) return;
+    cancelAnimationFrame(m.raf);
+    m.stream.getTracks().forEach((t) => t.stop());
+    void m.ctx.close();
+    setLevel(0);
+  }, []);
+
+  /** Best effort: a level meter on the microphone. Recognition works without it. */
+  const startMeter = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new AudioContext();
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      src.connect(analyser);
+      const buf = new Uint8Array(analyser.fftSize);
+      const entry = { ctx, stream, raf: 0 };
+      meter.current = entry;
+      const tick = () => {
+        if (meter.current !== entry) return;
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        setLevel(Math.min(1, rms * 4));
+        entry.raf = requestAnimationFrame(tick);
+      };
+      entry.raf = requestAnimationFrame(tick);
+    } catch {
+      /* no meter: the duck just idles */
+    }
+  }, []);
 
   const stop = useCallback(() => {
     rec.current?.stop();
-  }, []);
+    stopMeter();
+  }, [stopMeter]);
 
   const start = useCallback(() => {
     const Ctor = getCtor();
@@ -79,6 +124,7 @@ export function useSpeech(lang: string = navigator.language || "en-US"): SpeechS
     r.onend = () => {
       rec.current = null;
       setListening(false);
+      stopMeter();
     };
     rec.current = r;
     setTranscript("");
@@ -86,14 +132,21 @@ export function useSpeech(lang: string = navigator.language || "en-US"): SpeechS
     setListening(true);
     try {
       r.start();
+      void startMeter();
     } catch (err) {
       rec.current = null;
       setListening(false);
       setError((err as Error).message);
     }
-  }, [lang]);
+  }, [lang, startMeter, stopMeter]);
 
-  useEffect(() => () => rec.current?.abort(), []);
+  useEffect(
+    () => () => {
+      rec.current?.abort();
+      stopMeter();
+    },
+    [stopMeter],
+  );
 
-  return { supported, listening, transcript, error, lang, start, stop };
+  return { supported, listening, transcript, level, error, lang, start, stop };
 }

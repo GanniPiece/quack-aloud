@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../../shared/graph";
 import { useSpeech } from "../useSpeech";
 import { DuckIcon } from "./DuckIcon";
+import { DuckStage } from "./DuckStage";
 
 export interface PendingMessage {
   id: number;
@@ -63,8 +64,24 @@ export function ChatPanel({ messages, pending, busy, error, disabledReason, guid
     speech.start();
   };
 
+  /** Esc on the stage: stop listening and drop what was dictated, keep what was typed before */
+  const cancelDictation = () => {
+    speech.stop();
+    setText(dictationBase.current);
+  };
+
   return (
     <aside className="chat">
+      {speech.listening && (
+        <DuckStage
+          transcript={text}
+          level={speech.level}
+          lang={speech.lang}
+          canSend={text.trim().length > 0}
+          onSend={submit}
+          onCancel={cancelDictation}
+        />
+      )}
       <div className="chat-head">
         <button className="collapse" onClick={onCollapse} title="Hide the chat panel" aria-label="Hide the chat panel">
           ‹
