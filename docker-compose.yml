@@ -8,7 +8,8 @@ services:
       - .env            # ANTHROPIC_API_KEY and any overrides
     environment:
       DATA_DIR: /data
-      # APP_PASSWORD: change-me   # or set the password on first visit; it is kept in ./data/auth.json
+      # APP_EMAIL: you@example.com   # with APP_PASSWORD: seeds the owner account; otherwise the first
+      # APP_PASSWORD: change-me      # visit asks for email + password. Accounts live in ./data/users.json
     volumes:
       # Same folder the dev server uses, so data/projects/<id>.json is shared with
       # `npm run dev`, Claude Code, and Antigravity (the agent routes keep working).

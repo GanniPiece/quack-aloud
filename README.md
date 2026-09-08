@@ -31,7 +31,8 @@ Most AI tools invert the order of thinking: you ask, the model answers, and you 
 | `server/` | Express API on `API_PORT` | Watches `data/projects/` and pushes every change to browsers over SSE (`/api/events`) |
 | `server/providers/` | LLM backends | Swappable via `PROVIDER`. Only `claude` is implemented |
 | `src/` | Vite + React + React Flow UI | Chat on the left, canvas on the right |
-| `CLAUDE.md`, `.agents/` | Rules for coding agents that act as the duck without an API key | Claude Code reads `CLAUDE.md`; Google Antigravity reads `.agents/rules/quack-aloud.md` and gets a `/duck` workflow from `.agents/workflows/duck.md`. Run `npm run dev`, open the project in the browser, then type your thought to the agent (`/duck …` in either; plain text also works in Claude Code; add "guide" or "引導" for questions and challenges). It edits the project file and the canvas updates live, on the agent's own plan rather than a Gemini or Claude API key |
+| `server/mcp.ts`, `server/mcpHttp.ts` | The duck as an MCP server: five tools, over stdio or at `/mcp` over HTTP | Lets Claude Code, Antigravity, or any MCP client file cards through `duck_turn` on the agent's own plan, no API key. See "MCP server" below |
+| `CLAUDE.md`, `.agents/` | Rules for coding agents that act as the duck | Claude Code reads `CLAUDE.md`; Antigravity reads `.agents/rules/quack-aloud.md` and gets a `/duck` workflow. Both prefer the MCP tools and fall back to editing the project file |
 
 ## Getting started
 
@@ -71,19 +72,41 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 | 4 | Add "guide", "引導", or "質疑" to the message for questions and challenges | same | Without it the agent only organises |
 | 5 | Say "new project: <name>" / "開新專案：<名稱>" for a fresh project, or "new canvas: <name>" / "開新畫布：<名稱>" for another canvas in the open project | same | The agent creates the folder or file under `data/projects/` and files the rest of the message there. Switch to it in the pickers |
 
+### MCP server (recommended for agents)
+
+The app is also an MCP server. An agent gets five tools: `list_projects`, `read_canvas`, `create_project`, `create_canvas`, and `duck_turn`. It reads the canvas, decides the decomposition, and hands it to `duck_turn`, which applies the same merge logic as the in-app chat (placement, id collisions, hierarchy, chat history, organise-only filtering). No coordinates or JSON by hand. The server's instructions carry the same organising rules as the chat prompt, so any MCP client that connects knows how to be the duck.
+
+Two transports serve the same tools; pick by where the agent runs relative to the app:
+
+| Transport | Use it when | How it runs | Auth |
+|---|---|---|---|
+| **HTTP** at `/mcp` on the API port | Default. The app is running (`npm run dev`, Docker, Kubernetes), locally or on another machine; several agents share one endpoint | Part of the app process; nothing extra to start | Bearer token from Settings › MCP access (owner only). `MCP_TOKEN` pins it; rotate it in Settings if a copy leaks. The token grants read and write on every project, so use HTTPS outside localhost |
+| **stdio** via `npx tsx server/mcp.ts` | The agent runs on the machine that holds this repo and `data/`, and the app may not be running | The MCP client starts it as a child process and stops it afterwards; it edits the project files directly | None; it is local by construction |
+
+| Client | Setup |
+|---|---|
+| Claude Code, HTTP | Settings › MCP access › "copy the add command", then paste: `claude mcp add --transport http quack-aloud http://localhost:8787/mcp --header "Authorization: Bearer <token>"` (use the real host for a remote app) |
+| Claude Code, stdio | Nothing: `.mcp.json` in this repo registers `quack-aloud`; approve it when asked. From another folder: `claude mcp add quack-aloud -- npx tsx server/mcp.ts` (run in this folder, or set `DATA_DIR`) |
+| Antigravity | Customizations › MCP: an HTTP server at `http://localhost:8787/mcp` with header `Authorization: Bearer <token>`, or a stdio server with command `npx tsx server/mcp.ts` and this folder as the working directory |
+| Other MCP clients | Same two options; the endpoint speaks Streamable HTTP, stateless |
+| Docker without Node on the host | Use HTTP (the container serves `/mcp`). `.mcp.docker.json` is an alternative that runs the stdio server inside the container via `docker compose exec` |
+
+Testing it: `npm test` covers the tool logic (`server/mcp.test.ts`), the protocol over an in-memory transport (`server/mcp.protocol.test.ts`), and the HTTP endpoint with its token (`server/mcp.http.test.ts`, which starts the whole app on an ephemeral port). By hand: `npx @modelcontextprotocol/inspector` and point it at `http://localhost:8787/mcp` with the bearer header, or at the stdio command `npx tsx server/mcp.ts`; in Claude Code, start a new session and type `/mcp` to see `quack-aloud`.
+
 Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
 
 ## Sign-in
 
-The app protects itself with one shared password, because the API key behind it pays for every message.
+The app asks for an account (email + password), because the API key behind it pays for every message. Accounts control the door, not the data: everyone who can sign in shares the same projects.
 
 | Situation | What happens | Note |
 |---|---|---|
-| First visit, no password yet | A "Set a password" screen; 8 characters or more | Stored as a scrypt hash in `data/auth.json` (owner-only). Never commit or share that file |
-| Later visits | "Sign in" screen | The session is an HttpOnly cookie valid for 30 days; five wrong passwords lock that address for 30 seconds |
-| Containers, Kubernetes | Set `APP_PASSWORD` in the environment | A password set from the app takes precedence once one exists |
-| Change the password | Settings › Change password | Ends every other session |
-| Sign out | "Sign out" in the top bar | |
+| First visit, no accounts yet | "Create the owner account": email and a password of 8 characters or more | Stored as scrypt hashes in `data/users.json` (owner-only file). Never commit or share it |
+| Later visits | "Sign in" with email and password | The session is an HttpOnly cookie valid for 30 days; five wrong attempts lock that address for 30 seconds |
+| More people | Settings › Accounts (owner only): add an email and a starting password, or remove an account | The last owner cannot be removed |
+| Containers, Kubernetes | Set `APP_EMAIL` and `APP_PASSWORD` in the environment | Seeds the owner account on first start; ignored once any account exists |
+| Change your password | Settings › Change password | Ends your other sessions; other accounts are not affected |
+| Sign out | Your email · "Sign out" in the top bar | |
 | No sign-in wanted | `AUTH_DISABLED=1` | Only on a machine nobody else can reach |
 | Behind a reverse proxy | `TRUST_PROXY=1` | So cookies are marked Secure over HTTPS and rate limiting sees the real address |
 
@@ -118,7 +141,7 @@ A project is a folder of canvases: a novel might have "Concept", "Characters", a
 |---|---|---|---|
 | AI guidance toggle | Top of the chat | Both modes organise: cards, themes, relations, and refinements of existing cards. **Off** (Default): nothing else; the reply is one line saying what was filed. **On**: the duck also adds question / insight / to-verify / challenge cards and replies conversationally, pushing back on anything it doubts | Enforced server-side: with guidance off, any question / insight / to-verify card is dropped and a reply containing a question is replaced by a plain summary |
 | Map / Timeline | Top bar | **Map**: the free-form canvas. **Timeline**: the same cards grouped by the turn that created them, in the order you said them | Both read the same `graph.json`; the choice is remembered per browser |
-| Layout (on the map) | Top right of the canvas | How cards are arranged. **Auto** (Default) follows the duck's suggestion for the content; or pin one: **Themes** (one column per theme with containers), **Layered** (ranked left-to-right by edge direction, for cause/effect and dependencies), **Timeline** (a numbered time axis through the events, with labelled swim lanes: people and things above, claims and beliefs below, the duck's notes at the bottom; for stories and processes), **Mind map** (a tree spreading from the central concept, for knowledge; hierarchy relations such as "kind of", "part of", 屬於 are followed first, so intermediate concept cards become the levels) | Changing it re-arranges the canvas right away. After each duck turn the canvas is re-arranged in the current layout, except Themes, where new cards simply join their theme's column |
+| Layout (on the map) | Top right of the canvas | How cards are arranged. **Auto** (Default) follows the duck's suggestion for the content; or pin one: **Themes** (one column per theme with containers), **Layered** (ranked left-to-right by edge direction, for cause/effect and dependencies), **Timeline** (a numbered time axis through the events, with labelled swim lanes: people and things above, claims and beliefs below, the duck's notes at the bottom; for stories and processes), **Mind map** (a tree spreading from the central concept, for knowledge; hierarchy relations such as "kind of", "part of", 屬於 are followed first, so intermediate concept cards become the levels) | Changing it re-arranges the canvas right away. With "Auto" on (Default), every batch of cards added by the duck or an agent re-arranges the canvas in the current layout |
 
 ## Chat
 
@@ -140,7 +163,7 @@ A project is a folder of canvases: a novel might have "Concept", "Characters", a
 | Select several | Drag a box on empty space (touching a card is enough), or Shift+click. Drag any selected card to move them all |
 | Pan / zoom | Scroll or pinch to zoom around the cursor; hold Space and drag, or middle- or right-drag, to pan |
 | Delete | Select, then Backspace or Delete |
-| Re-lay out everything | "Tidy" (top right), in the current layout |
+| Re-lay out everything | "Tidy" (top right), in the current layout. "Auto" next to it (Default: on) does this by itself whenever the duck, an MCP agent, or Claude Code adds cards; cards you add by hand and your drags never trigger it. Turn it off to keep a hand-made arrangement |
 | Save a copy | "Export" (top right). Downloads the current canvas, chat included, as `quack-aloud-<project>-<canvas>-<date>.json` |
 | Load a copy | "Import" (top right). Creates a new canvas in the current project from an exported file and switches to it; nothing is overwritten. Any valid canvas file works, including one written by hand |
 | Start over | "Clear" (top right), then confirm with "Really clear everything?". Empties the current canvas but keeps it |
@@ -163,6 +186,7 @@ A project is a folder of canvases: a novel might have "Concept", "Characters", a
 | `npm run build` | Typecheck, then build the UI into `dist/` |
 | `npm start` | Serve API and the built UI from one process on `API_PORT` (run `npm run build` first) |
 | `npm run docker:build` / `npm run docker:run` | Build the image / build and start with compose |
+| `npm run mcp` | Start the MCP server on stdio (for MCP clients; not something to run by hand) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Unit tests (Vitest) for the graph merge logic, prompt assembly, and the four layouts. `npm run test:watch` re-runs on change |
 

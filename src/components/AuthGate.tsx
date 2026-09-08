@@ -19,14 +19,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh();
-    const onUnauthorized = () => setStatus((s) => (s ? { ...s, authenticated: false } : s));
+    const onUnauthorized = () => setStatus((s) => (s ? { ...s, user: null } : s));
     window.addEventListener("qa:unauthorized", onUnauthorized);
     return () => window.removeEventListener("qa:unauthorized", onUnauthorized);
   }, [refresh]);
 
   if (error) return <Screen title="Cannot reach the server"><p className="auth-error">{error}</p></Screen>;
   if (!status) return <Screen title="Loading…" />;
-  if (!status.authRequired || status.authenticated) return <>{children}</>;
+  if (!status.authRequired || status.user) return <>{children}</>;
   return status.configured ? <SignIn onDone={refresh} /> : <Setup onDone={refresh} />;
 }
 
@@ -43,6 +43,7 @@ function Screen({ title, children }: { title: string; children?: ReactNode }) {
 }
 
 function Setup({ onDone }: { onDone: () => void }) {
+  const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [again, setAgain] = useState("");
   const [busy, setBusy] = useState(false);
@@ -56,7 +57,7 @@ function Setup({ onDone }: { onDone: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await api.authSetup(pw);
+      await api.authSetup(email, pw);
       onDone();
     } catch (err) {
       setError((err as Error).message);
@@ -65,19 +66,21 @@ function Setup({ onDone }: { onDone: () => void }) {
     }
   };
   return (
-    <Screen title="Set a password">
-      <p className="muted">This app talks to a paid API, so it asks everyone to sign in. Choose the password now; you can change it later in Settings.</p>
+    <Screen title="Create the owner account">
+      <p className="muted">This app talks to a paid API, so it asks everyone to sign in. This first account is the owner; it can add more accounts in Settings.</p>
       <form onSubmit={submit} className="auth-form">
-        <input type="password" autoFocus autoComplete="new-password" placeholder="Password (8+ characters)" value={pw} onChange={(e) => setPw(e.target.value)} />
+        <input type="email" autoFocus autoComplete="username" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input type="password" autoComplete="new-password" placeholder="Password (8+ characters)" value={pw} onChange={(e) => setPw(e.target.value)} />
         <input type="password" autoComplete="new-password" placeholder="Again" value={again} onChange={(e) => setAgain(e.target.value)} />
         {error && <div className="auth-error">{error}</div>}
-        <button className="primary" disabled={busy || pw.length < 8 || !again}>{busy ? "Saving…" : "Create password"}</button>
+        <button className="primary" disabled={busy || !email.includes("@") || pw.length < 8 || !again}>{busy ? "Creating…" : "Create account"}</button>
       </form>
     </Screen>
   );
 }
 
 function SignIn({ onDone }: { onDone: () => void }) {
+  const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +89,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await api.authLogin(pw);
+      await api.authLogin(email, pw);
       setPw("");
       onDone();
     } catch (err) {
@@ -98,9 +101,10 @@ function SignIn({ onDone }: { onDone: () => void }) {
   return (
     <Screen title="Sign in">
       <form onSubmit={submit} className="auth-form">
-        <input type="password" autoFocus autoComplete="current-password" placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        <input type="email" autoFocus autoComplete="username" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input type="password" autoComplete="current-password" placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} />
         {error && <div className="auth-error">{error}</div>}
-        <button className="primary" disabled={busy || !pw}>{busy ? "Signing in…" : "Sign in"}</button>
+        <button className="primary" disabled={busy || !email || !pw}>{busy ? "Signing in…" : "Sign in"}</button>
       </form>
     </Screen>
   );

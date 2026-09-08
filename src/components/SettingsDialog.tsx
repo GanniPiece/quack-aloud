@@ -1,17 +1,125 @@
 import { useEffect, useState } from "react";
-import { api, type SettingsInfo } from "../api";
+import { api, type AuthUser, type SettingsInfo, type UserRecord } from "../api";
 
 interface Props {
   onClose: () => void;
   /** Called after a successful save so the app can refresh its health pill */
   onSaved: () => void;
+  /** Who is signed in; the owner also sees the accounts section */
+  me: AuthUser | null;
+}
+
+function McpAccess() {
+  const [info, setInfo] = useState<{ token: string; source: "env" | "file"; url: string; claudeCode: string } | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [shown, setShown] = useState(false);
+  const load = () => api.mcpInfo().then(setInfo).catch((err) => setMsg((err as Error).message));
+  useEffect(() => {
+    void load();
+  }, []);
+  const copy = async (text: string, what: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setMsg(`${what} copied.`);
+    } catch {
+      setMsg("Copy failed; select the text and copy it yourself.");
+    }
+  };
+  const rotate = async () => {
+    setMsg(null);
+    try {
+      await api.rotateMcpToken();
+      await load();
+      setMsg("New token issued; agents using the old one must be updated.");
+    } catch (err) {
+      setMsg((err as Error).message);
+    }
+  };
+  return (
+    <details className="field">
+      <summary>MCP access</summary>
+      <small>Agents (Claude Code, Antigravity, others) can drive the duck over HTTP at the address below with this bearer token. Anyone holding the token can read and write every project.</small>
+      {info && (
+        <>
+          <div className="token-row">
+            <code>{shown ? info.token : "•".repeat(24)}</code>
+            <button className="link" onClick={() => setShown((s) => !s)}>{shown ? "hide" : "show"}</button>
+            <button className="link" onClick={() => copy(info.token, "Token")}>copy</button>
+          </div>
+          <small>Endpoint: <code>{info.url}</code></small>
+          <div className="token-row">
+            <small>Claude Code:</small>
+            <button className="link" onClick={() => copy(info.claudeCode, "Command")}>copy the add command</button>
+          </div>
+          <div className="modal-actions">
+            {msg && <small className="pw-msg">{msg}</small>}
+            <button className="ghost" onClick={rotate} disabled={info.source === "env"} title={info.source === "env" ? "Set by MCP_TOKEN in the environment" : "Issue a new token"}>Rotate token</button>
+          </div>
+        </>
+      )}
+      {!info && msg && <small className="pw-msg">{msg}</small>}
+    </details>
+  );
+}
+
+function Accounts({ me }: { me: AuthUser }) {
+  const [users, setUsers] = useState<UserRecord[] | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const reload = () => api.listUsers().then(setUsers).catch((err) => setMsg((err as Error).message));
+  useEffect(() => {
+    void reload();
+  }, []);
+  const add = async () => {
+    setMsg(null);
+    try {
+      await api.addUser(email, password);
+      setEmail("");
+      setPassword("");
+      await reload();
+    } catch (err) {
+      setMsg((err as Error).message);
+    }
+  };
+  const remove = async (u: UserRecord) => {
+    setMsg(null);
+    try {
+      await api.removeUser(u.id);
+      await reload();
+    } catch (err) {
+      setMsg((err as Error).message);
+    }
+  };
+  return (
+    <details className="field">
+      <summary>Accounts</summary>
+      <ul className="user-list">
+        {users?.map((u) => (
+          <li key={u.id}>
+            <span>{u.email}</span>
+            <small>{u.role}</small>
+            {u.email !== me.email && <button className="link" onClick={() => remove(u)}>remove</button>}
+          </li>
+        ))}
+      </ul>
+      <div className="field-row">
+        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input type="password" autoComplete="new-password" placeholder="Password (8+)" value={password} onChange={(e) => setPassword(e.target.value)} />
+      </div>
+      <div className="modal-actions">
+        {msg && <small className="pw-msg">{msg}</small>}
+        <button className="ghost" onClick={add} disabled={!email.includes("@") || password.length < 8}>Add account</button>
+      </div>
+    </details>
+  );
 }
 
 /**
  * API key, provider, model, and effort, saved on the server (data/settings.json). The key is
  * write-only from here: the dialog only ever sees a masked hint of what is stored.
  */
-export function SettingsDialog({ onClose, onSaved }: Props) {
+export function SettingsDialog({ onClose, onSaved, me }: Props) {
   const [info, setInfo] = useState<SettingsInfo | null>(null);
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -147,6 +255,8 @@ export function SettingsDialog({ onClose, onSaved }: Props) {
             <button className="ghost" onClick={changePassword} disabled={pwBusy || pwNext.length < 8}>{pwBusy ? "Changing…" : "Change"}</button>
           </div>
         </details>
+        {me?.role === "owner" && <McpAccess />}
+        {me?.role === "owner" && <Accounts me={me} />}
         <div className="modal-actions">
           <button className="ghost" onClick={onClose}>Cancel</button>
           <button className="primary" onClick={save} disabled={!info || saving}>

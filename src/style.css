@@ -53,6 +53,12 @@ button.link { font: inherit; font-size: inherit; color: #8a6d0b; background: non
 .modal details summary { cursor: pointer; font-weight: 600; }
 .modal details .field-row { margin-top: 10px; }
 .modal .pw-msg { margin-right: auto; color: var(--muted); }
+.token-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; }
+.token-row code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: #f0eee8; padding: 3px 8px; border-radius: 6px; word-break: break-all; }
+.user-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.user-list li { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.user-list li small { color: var(--muted); }
+.user-list li .link { margin-left: auto; color: var(--danger); }
 
 /* ---------- modal (settings) ---------- */
 .modal-backdrop {
@@ -234,6 +240,7 @@ button.link { font: inherit; font-size: inherit; color: #8a6d0b; background: non
 }
 .notice button.danger { border-color: var(--danger); color: #fff; background: var(--danger); }
 .toolbar button:disabled { opacity: 0.4; cursor: default; }
+.toolbar .auto-tidy { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); cursor: pointer; }
 .toolbar-sep { width: 1px; height: 18px; background: var(--line); margin: 0 2px; }
 .layout-pick { display: inline-flex; align-items: center; gap: 6px; }
 .layout-pick select {

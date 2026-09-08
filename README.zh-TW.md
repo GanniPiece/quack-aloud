@@ -29,7 +29,8 @@ Quack Aloud 是帶畫布的橡皮鴨除錯法：你對一隻鴨子把想法說�
 | `server/` | 跑在 `API_PORT` 的 Express API | 監看 `data/projects/`，每次變動用 SSE（`/api/events`）推給瀏覽器 |
 | `server/providers/` | LLM 後端 | 用 `PROVIDER` 切換。目前只有 `claude` |
 | `src/` | Vite + React + React Flow 的 UI | 左邊聊天、右邊畫布 |
-| `CLAUDE.md`、`.agents/` | 讓 coding agent 不用 API key 就能當鴨子的規則 | Claude Code 讀 `CLAUDE.md`；Google Antigravity 讀 `.agents/rules/quack-aloud.md`，並從 `.agents/workflows/duck.md` 取得 `/duck` workflow。跑 `npm run dev`、在瀏覽器開好專案，再把想法打給 agent（兩邊都可用 `/duck …`；Claude Code 直接打字也行；加「guide」或「引導」會得到追問與質疑）。它會改專案檔，畫布即時更新，費用走 agent 自己的方案而不是 Gemini 或 Claude 的 API key |
+| `server/mcp.ts`、`server/mcpHttp.ts` | 鴨子的 MCP server：五個工具，走 stdio 或 HTTP 的 `/mcp` | 讓 Claude Code、Antigravity 或任何 MCP client 透過 `duck_turn` 歸檔卡片，用 agent 自己的方案、不需 API key。見下方「MCP server」 |
+| `CLAUDE.md`、`.agents/` | 讓 coding agent 當鴨子的規則 | Claude Code 讀 `CLAUDE.md`；Antigravity 讀 `.agents/rules/quack-aloud.md` 並取得 `/duck` workflow。兩者都優先用 MCP 工具，沒有才退回改專案檔 |
 
 ## 開始使用
 
@@ -69,19 +70,41 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 | 4 | 訊息裡加「guide」「引導」或「質疑」會得到追問與質疑 | 同左 | 不加就只整理 |
 | 5 | 說「開新專案：<名稱>」開新專案，或「開新畫布：<名稱>」在目前專案下加一個 canvas | 同左 | agent 會在 `data/projects/` 建資料夾或檔案並把訊息其餘部分歸進去。到選單切換過去 |
 
+### MCP server（給 agent 用，建議走這條）
+
+app 本身也是一個 MCP server。agent 拿到五個工具：`list_projects`、`read_canvas`、`create_project`、`create_canvas`、`duck_turn`。它讀畫布、決定怎麼拆，再把拆解結果交給 `duck_turn`，由它套用和 app 內聊天完全相同的合併邏輯（擺位、id 撞名、階層、對話紀錄、organise 模式過濾）。不用手寫座標或 JSON。server 的 instructions 帶著和聊天 prompt 相同的整理規則，任何 MCP client 連上就知道怎麼當鴨子。
+
+兩種傳輸提供同一組工具，依 agent 和 app 的相對位置選：
+
+| 傳輸 | 適用 | 怎麼跑 | 認證 |
+|---|---|---|---|
+| **HTTP**：API port 上的 `/mcp` | 預設。app 正在跑（`npm run dev`、Docker、Kubernetes），本機或別台都行；多個 agent 共用一個端點 | 是 app 行程的一部分，不用另外啟動 | Settings › MCP access（只有 owner 看得到）的 bearer token。`MCP_TOKEN` 可固定它；外洩就在 Settings 換一個。token 等於所有專案的讀寫權，離開 localhost 請走 HTTPS |
+| **stdio**：`npx tsx server/mcp.ts` | agent 和這個 repo、`data/` 在同一台機器，app 可以沒在跑 | MCP client 把它當子行程啟動、用完停掉；直接改專案檔 | 不需要，本來就只在本機 |
+
+| Client | 設定 |
+|---|---|
+| Claude Code，HTTP | Settings › MCP access ›「copy the add command」貼上：`claude mcp add --transport http quack-aloud http://localhost:8787/mcp --header "Authorization: Bearer <token>"`（遠端的話換成實際 host） |
+| Claude Code，stdio | 不用設定：repo 裡的 `.mcp.json` 已登記 `quack-aloud`，詢問時核准即可。在別的資料夾：`claude mcp add quack-aloud -- npx tsx server/mcp.ts`（在這個資料夾執行，或設 `DATA_DIR`） |
+| Antigravity | Customizations › MCP：新增 HTTP server `http://localhost:8787/mcp`，header 帶 `Authorization: Bearer <token>`；或 stdio server，指令 `npx tsx server/mcp.ts`、工作目錄設這個資料夾 |
+| 其他 MCP client | 同上兩種；端點是無狀態的 Streamable HTTP |
+| Docker 而 host 沒有 Node | 用 HTTP（container 本身提供 `/mcp`）。`.mcp.docker.json` 是替代方案，透過 `docker compose exec` 在 container 裡跑 stdio server |
+
+測試：`npm test` 涵蓋工具邏輯（`server/mcp.test.ts`）、記憶體傳輸上的協定（`server/mcp.protocol.test.ts`）、以及帶 token 的 HTTP 端點（`server/mcp.http.test.ts`，會在隨機 port 起整個 app）。手動：`npx @modelcontextprotocol/inspector` 指向 `http://localhost:8787/mcp` 並帶 bearer header，或指向 stdio 指令 `npx tsx server/mcp.ts`；在 Claude Code 開新對話後打 `/mcp` 應該看到 `quack-aloud`。
+
 兩條路和 app 內的聊天寫的是同一批檔案，可以混用。避免在 agent 寫檔的同一刻在瀏覽器拖卡片；瀏覽器會拒絕過期的寫入並顯示「canvas changed elsewhere」。
 
 ## 登入
 
-這個 app 用一組共用密碼保護自己，因為後面的 API key 每則訊息都要付費。
+這個 app 要求帳號登入（email + 密碼），因為後面的 API key 每則訊息都要付費。帳號只管門，不分資料：能登入的人共用同一批專案。
 
 | 情況 | 行為 | Note |
 |---|---|---|
-| 第一次開、還沒有密碼 | 出現「Set a password」畫面，至少 8 個字元 | 以 scrypt 雜湊存在 `data/auth.json`（只有擁有者可讀）。不要 commit 或分享這個檔 |
-| 之後 | 「Sign in」畫面 | session 是 HttpOnly cookie，30 天有效；密碼錯 5 次會鎖該來源 30 秒 |
-| Container、Kubernetes | 環境變數設 `APP_PASSWORD` | 一旦在 app 裡設過密碼，以 app 裡的為準 |
-| 改密碼 | Settings › Change password | 其他 session 全部登出 |
-| 登出 | 頂欄「Sign out」 | |
+| 第一次開、還沒有帳號 | 「Create the owner account」：email 加至少 8 個字元的密碼 | 以 scrypt 雜湊存在 `data/users.json`（只有擁有者可讀）。不要 commit 或分享這個檔 |
+| 之後 | 用 email 和密碼「Sign in」 | session 是 HttpOnly cookie，30 天有效；錯 5 次會鎖該來源 30 秒 |
+| 多人使用 | Settings › Accounts（只有 owner 看得到）：填 email 和初始密碼新增，或移除帳號 | 最後一個 owner 不能移除 |
+| Container、Kubernetes | 環境變數設 `APP_EMAIL` 和 `APP_PASSWORD` | 第一次啟動時建立 owner 帳號；已有任何帳號就忽略 |
+| 改自己的密碼 | Settings › Change password | 自己的其他 session 登出；不影響別人 |
+| 登出 | 頂欄「你的 email · Sign out」 | |
 | 不想要登入 | `AUTH_DISABLED=1` | 只適合別人碰不到的機器 |
 | 放在 reverse proxy 後面 | `TRUST_PROXY=1` | 讓 cookie 在 HTTPS 下標 Secure，速率限制也才看得到真實來源 |
 
@@ -116,7 +139,7 @@ Provider、API key、model、effort 在右上角 **Settings** 設定（聊天欄
 |---|---|---|---|
 | AI guidance 開關 | 聊天欄上方 | 兩種模式都會整理：卡片、主題、關係、既有卡片的修訂。**關**（Default）：只做整理，回覆是一句「歸了什麼」。**開**：鴨子會再加 question / insight / to-verify / challenge 卡片，並用口語回覆，有疑慮就回嘴 | server 端強制：關閉時任何 question / insight / to-verify 卡片都會被丟掉，含問句的回覆會換成固定摘要 |
 | Map / Timeline | 頂欄 | **Map**：自由畫布。**Timeline**：同一批卡片依「哪一句話產生」分組，照你說的順序排 | 兩者讀同一個專案檔；選擇會記在瀏覽器裡 |
-| Layout（Map 上） | 畫布右上角 | 卡片怎麼排。**Auto**（Default）跟隨鴨子對內容的建議；或固定一種：**Themes**（一主題一欄，有容器）、**Layered**（依邊的方向由左到右分層，適合因果與依賴）、**Timeline**（有編號的時間軸穿過事件，泳道各有標籤：人與物在上、說法與信念在下、鴨子的筆記在最下；適合故事與流程）、**Mind map**（從核心概念向兩側展開的樹，適合知識；優先沿「是一種」「屬於」「part of」這類階層關係走，所以中介概念卡會變成層次） | 切換會立刻重排。每輪鴨子回覆後畫布會用目前版面重排，Themes 例外，新卡片只是排進所屬主題的欄位 |
+| Layout（Map 上） | 畫布右上角 | 卡片怎麼排。**Auto**（Default）跟隨鴨子對內容的建議；或固定一種：**Themes**（一主題一欄，有容器）、**Layered**（依邊的方向由左到右分層，適合因果與依賴）、**Timeline**（有編號的時間軸穿過事件，泳道各有標籤：人與物在上、說法與信念在下、鴨子的筆記在最下；適合故事與流程）、**Mind map**（從核心概念向兩側展開的樹，適合知識；優先沿「是一種」「屬於」「part of」這類階層關係走，所以中介概念卡會變成層次） | 切換會立刻重排。「Auto」開著時（Default），鴨子或 agent 每加入一批卡片就用目前版面重排 |
 
 ## 聊天
 
@@ -138,7 +161,7 @@ Provider、API key、model、effort 在右上角 **Settings** 設定（聊天欄
 | 多選 | 在空白處拖出框（碰到卡片即算選中），或 Shift + 點擊。拖任一張選中的卡會一起移動 |
 | 平移 / 縮放 | 滾輪或 pinch 以游標為中心縮放；按住 Space 拖曳、或中鍵 / 右鍵拖曳平移 |
 | 刪除 | 選取後按 Backspace 或 Delete |
-| 全部重排 | 右上角「Tidy」，用目前版面 |
+| 全部重排 | 右上角「Tidy」，用目前版面。旁邊的「Auto」（Default 開）會在鴨子、MCP agent 或 Claude Code 加入卡片時自動做這件事；你自己加的卡片和拖曳不會觸發。想保留手排的位置就關掉 |
 | 存一份 | 右上角「Export」。下載目前 canvas（含對話）成 `quack-aloud-<專案>-<canvas>-<日期>.json` |
 | 載入一份 | 右上角「Import」。從匯出檔在目前專案裡建立新 canvas 並切換過去，不會覆蓋任何東西。任何合法的 canvas 檔都可以，手寫的也行 |
 | 重來 | 右上角「Clear」，再按「Really clear everything?」確認。清空目前 canvas 的內容但保留它 |
@@ -161,6 +184,7 @@ Provider、API key、model、effort 在右上角 **Settings** 設定（聊天欄
 | `npm run build` | 先 typecheck，再把 UI build 到 `dist/` |
 | `npm start` | 用一個 process 在 `API_PORT` 同時服務 API 和 build 好的 UI（先跑 `npm run build`） |
 | `npm run docker:build` / `npm run docker:run` | 建 image / 用 compose 建並啟動 |
+| `npm run mcp` | 在 stdio 上啟動 MCP server（給 MCP client 用，不是手動跑的） |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Vitest 單元測試：graph 合併邏輯、prompt 組裝、四種版面。`npm run test:watch` 會在檔案變動時重跑 |
 

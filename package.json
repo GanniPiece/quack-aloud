@@ -13,11 +13,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "docker:build": "docker build -t quack-aloud:local .",
-    "docker:run": "docker compose up --build"
+    "docker:run": "docker compose up --build",
+    "mcp": "tsx server/mcp.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
     "@dagrejs/dagre": "^1.1.4",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@xyflow/react": "^12.4.4",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",

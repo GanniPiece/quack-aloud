@@ -5,13 +5,17 @@ import type { NextFunction, Request, Response } from "express";
 import { DATA_DIR } from "./graph";
 
 /**
- * Single shared password with signed session cookies. Enough for a self-hosted tool that
- * one person or a small group runs; the API key it protects pays for every message.
+ * Accounts (email + password) with signed session cookies.
  *
- *   data/auth.json   { passwordHash, salt, sessionSecret }   (mode 0600)
- *   APP_PASSWORD     alternative for containers; verified against a hash computed at start
- *   AUTH_DISABLED=1  explicit opt-out for a machine nobody else can reach
+ *   data/users.json  [{ id, email, passwordHash, salt, role, sessionVersion, createdAt }]  (mode 0600)
+ *   data/auth.json   { sessionSecret }                                                     (mode 0600)
+ *   APP_EMAIL + APP_PASSWORD  seed the first owner on startup when there are no users (containers)
+ *   AUTH_DISABLED=1           explicit opt-out for a machine nobody else can reach
+ *
+ * The first account is the owner and can add or remove members in Settings. Projects are
+ * shared by everyone who can sign in; accounts control the door, not the data.
  */
+export const USERS_PATH = path.join(DATA_DIR, "users.json");
 export const AUTH_PATH = path.join(DATA_DIR, "auth.json");
 export const COOKIE = "qa_session";
 export const MIN_PASSWORD = 8;
@@ -19,33 +23,62 @@ const SESSION_DAYS = 30;
 const LOCK_AFTER = 5; // failed attempts
 const LOCK_MS = 30_000;
 
-interface AuthFile {
+export type Role = "owner" | "member";
+
+export interface User {
+  id: string;
+  email: string;
+  role: Role;
+  createdAt: number;
+}
+
+interface StoredUser extends User {
   passwordHash: string;
   salt: string;
-  sessionSecret: string;
+  /** bumped on password change or deletion so existing sessions stop verifying */
+  sessionVersion: number;
 }
 
-function readAuth(): AuthFile | null {
+// ---------- files ----------
+
+function readJson<T>(file: string): T | null {
   try {
-    const raw = JSON.parse(fs.readFileSync(AUTH_PATH, "utf8")) as Partial<AuthFile>;
-    if (raw && typeof raw.passwordHash === "string" && typeof raw.salt === "string" && typeof raw.sessionSecret === "string") return raw as AuthFile;
+    return JSON.parse(fs.readFileSync(file, "utf8")) as T;
   } catch {
-    /* no file */
+    return null;
   }
-  return null;
 }
 
-function writeAuth(a: AuthFile) {
+function writePrivate(file: string, value: unknown) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = `${AUTH_PATH}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(a, null, 2) + "\n", { mode: 0o600 });
-  fs.renameSync(tmp, AUTH_PATH);
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + "\n", { mode: 0o600 });
+  fs.renameSync(tmp, file);
   try {
-    fs.chmodSync(AUTH_PATH, 0o600);
+    fs.chmodSync(file, 0o600);
   } catch {
     /* not every filesystem supports it */
   }
 }
+
+function readUsers(): StoredUser[] {
+  const raw = readJson<StoredUser[]>(USERS_PATH);
+  return Array.isArray(raw) ? raw : [];
+}
+
+function writeUsers(users: StoredUser[]) {
+  writePrivate(USERS_PATH, users);
+}
+
+function sessionSecret(): string {
+  const a = readJson<{ sessionSecret?: string }>(AUTH_PATH);
+  if (a?.sessionSecret) return a.sessionSecret;
+  const secret = crypto.randomBytes(32).toString("hex");
+  writePrivate(AUTH_PATH, { sessionSecret: secret });
+  return secret;
+}
+
+// ---------- passwords ----------
 
 function hash(password: string, salt: string): string {
   return crypto.scryptSync(password.normalize("NFKC"), salt, 64).toString("hex");
@@ -56,35 +89,15 @@ function equal(a: string, b: string): boolean {
   return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
 }
 
-// The environment password is hashed once so the plain text is not compared repeatedly
-let envAuth: AuthFile | null = null;
-function envPassword(): AuthFile | null {
-  const pw = process.env.APP_PASSWORD;
-  if (!pw) return null;
-  if (!envAuth) {
-    const salt = crypto.randomBytes(16).toString("hex");
-    envAuth = { salt, passwordHash: hash(pw, salt), sessionSecret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex") };
-  }
-  return envAuth;
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
-function current(): AuthFile | null {
-  return readAuth() ?? envPassword();
-}
-
-export function authDisabled(): boolean {
-  return process.env.AUTH_DISABLED === "1" || process.env.AUTH_DISABLED === "true";
-}
-
-/** Is a password configured (file or environment)? When false, the app shows the setup screen. */
-export function hasPassword(): boolean {
-  return current() !== null;
-}
-
-export function passwordSource(): "file" | "env" | "none" {
-  if (readAuth()) return "file";
-  if (envPassword()) return "env";
-  return "none";
+export function validateEmail(email: unknown): string | null {
+  if (typeof email !== "string") return "Email must be text";
+  const e = normalizeEmail(email);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return "That does not look like an email address";
+  return null;
 }
 
 export function validatePassword(pw: unknown): string | null {
@@ -93,16 +106,84 @@ export function validatePassword(pw: unknown): string | null {
   return null;
 }
 
-/** Sets or replaces the password. Rotates the session secret, so every existing session ends. */
-export function setPassword(pw: string): void {
-  const salt = crypto.randomBytes(16).toString("hex");
-  writeAuth({ salt, passwordHash: hash(pw, salt), sessionSecret: crypto.randomBytes(32).toString("hex") });
+const publicUser = ({ id, email, role, createdAt }: StoredUser): User => ({ id, email, role, createdAt });
+
+export function authDisabled(): boolean {
+  return process.env.AUTH_DISABLED === "1" || process.env.AUTH_DISABLED === "true";
 }
 
-export function verifyPassword(pw: string): boolean {
-  const a = current();
-  if (!a) return false;
-  return equal(hash(pw, a.salt), a.passwordHash);
+export function hasUsers(): boolean {
+  return readUsers().length > 0;
+}
+
+export function listUsers(): User[] {
+  return readUsers().map(publicUser);
+}
+
+export function getUser(id: string): User | null {
+  const u = readUsers().find((x) => x.id === id);
+  return u ? publicUser(u) : null;
+}
+
+/** The first account becomes the owner. Emails are unique, case-insensitively. */
+export function createUser(email: string, password: string, role?: Role): User {
+  const e = normalizeEmail(email);
+  const problem = validateEmail(e) ?? validatePassword(password);
+  if (problem) throw new Error(problem);
+  const users = readUsers();
+  if (users.some((u) => u.email === e)) throw new Error("An account with that email already exists");
+  const salt = crypto.randomBytes(16).toString("hex");
+  const user: StoredUser = {
+    id: `u-${crypto.randomBytes(6).toString("hex")}`,
+    email: e,
+    role: role ?? (users.length === 0 ? "owner" : "member"),
+    createdAt: Date.now(),
+    passwordHash: hash(password, salt),
+    salt,
+    sessionVersion: 1,
+  };
+  writeUsers([...users, user]);
+  return publicUser(user);
+}
+
+export function verifyLogin(email: string, password: string): User | null {
+  const e = normalizeEmail(email);
+  const u = readUsers().find((x) => x.email === e);
+  // hash even when the user is unknown so timing does not reveal which emails exist
+  const probe = u ?? { salt: "0".repeat(32), passwordHash: "0".repeat(128) };
+  const ok = equal(hash(password, probe.salt), probe.passwordHash);
+  return u && ok ? publicUser(u) : null;
+}
+
+/** New password for one user; ends that user's sessions only. */
+export function changePassword(id: string, password: string): void {
+  const problem = validatePassword(password);
+  if (problem) throw new Error(problem);
+  const users = readUsers();
+  const u = users.find((x) => x.id === id);
+  if (!u) throw new Error("No such user");
+  u.salt = crypto.randomBytes(16).toString("hex");
+  u.passwordHash = hash(password, u.salt);
+  u.sessionVersion += 1;
+  writeUsers(users);
+}
+
+/** Returns an error message, or null when the user was removed. */
+export function deleteUser(id: string): string | null {
+  const users = readUsers();
+  const u = users.find((x) => x.id === id);
+  if (!u) return "No such user";
+  if (u.role === "owner" && users.filter((x) => x.role === "owner").length === 1) return "Cannot remove the last owner";
+  writeUsers(users.filter((x) => x.id !== id));
+  return null;
+}
+
+/** Containers: create the first owner from APP_EMAIL + APP_PASSWORD when there are no users yet. */
+export function seedFromEnv(): boolean {
+  const email = process.env.APP_EMAIL, password = process.env.APP_PASSWORD;
+  if (!email || !password || hasUsers()) return false;
+  createUser(email, password, "owner");
+  return true;
 }
 
 // ---------- sessions ----------
@@ -111,24 +192,25 @@ function sign(payload: string, secret: string): string {
   return crypto.createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
-/** Token = expiry.nonce.signature; nothing is stored server-side, the secret is the state. */
-export function issueSession(now = Date.now()): string {
-  const a = current();
-  if (!a) throw new Error("No password configured");
-  const payload = `${now + SESSION_DAYS * 86_400_000}.${crypto.randomBytes(12).toString("base64url")}`;
-  return `${payload}.${sign(payload, a.sessionSecret)}`;
+/** Token = expiry.userId.sessionVersion.nonce.signature; the server stores no session state. */
+export function issueSession(userId: string, now = Date.now()): string {
+  const u = readUsers().find((x) => x.id === userId);
+  if (!u) throw new Error("No such user");
+  const payload = `${now + SESSION_DAYS * 86_400_000}.${u.id}.${u.sessionVersion}.${crypto.randomBytes(12).toString("base64url")}`;
+  return `${payload}.${sign(payload, sessionSecret())}`;
 }
 
-export function verifySession(token: string | undefined, now = Date.now()): boolean {
-  if (!token) return false;
-  const a = current();
-  if (!a) return false;
+export function verifySession(token: string | undefined, now = Date.now()): User | null {
+  if (!token) return null;
   const i = token.lastIndexOf(".");
-  if (i < 0) return false;
+  if (i < 0) return null;
   const payload = token.slice(0, i), sig = token.slice(i + 1);
-  if (!equal(sign(payload, a.sessionSecret), sig)) return false;
-  const expires = Number(payload.split(".")[0]);
-  return Number.isFinite(expires) && expires > now;
+  if (!equal(sign(payload, sessionSecret()), sig)) return null;
+  const [expires, userId, version] = payload.split(".");
+  if (!(Number(expires) > now)) return null;
+  const u = readUsers().find((x) => x.id === userId);
+  if (!u || String(u.sessionVersion) !== version) return null;
+  return publicUser(u);
 }
 
 export function parseCookies(header: string | undefined): Record<string, string> {
@@ -157,8 +239,11 @@ export function clearSessionCookie(req: Request, res: Response) {
   res.setHeader("Set-Cookie", parts.join("; "));
 }
 
-export function isAuthenticated(req: Request): boolean {
-  if (authDisabled()) return true;
+const LOCAL_USER: User = { id: "local", email: "local", role: "owner", createdAt: 0 };
+
+/** The signed-in user, or a synthetic owner when authentication is disabled. */
+export function currentUser(req: Request): User | null {
+  if (authDisabled()) return LOCAL_USER;
   return verifySession(parseCookies(req.headers.cookie)[COOKIE]);
 }
 
@@ -189,6 +274,6 @@ export function recordLogin(ip: string, ok: boolean, now = Date.now()) {
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.path.startsWith("/api/auth/")) return next();
   if (!req.path.startsWith("/api/")) return next();
-  if (isAuthenticated(req)) return next();
+  if (currentUser(req)) return next();
   res.status(401).json({ error: "Sign in to continue.", authRequired: true });
 }

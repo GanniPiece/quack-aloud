@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type CanvasRef, type HealthInfo } from "./api";
+import { api, type AuthUser, type CanvasRef, type HealthInfo } from "./api";
 import { Canvas } from "./components/Canvas";
 import { ChatPanel, type PendingMessage } from "./components/ChatPanel";
 import { DuckIcon } from "./components/DuckIcon";
@@ -47,8 +47,15 @@ export default function App() {
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
+  const [me, setMe] = useState<AuthUser | null>(null);
   useEffect(() => {
-    api.authStatus().then((s) => setAuthRequired(s.authRequired)).catch(() => undefined);
+    api
+      .authStatus()
+      .then((s) => {
+        setAuthRequired(s.authRequired);
+        setMe(s.user);
+      })
+      .catch(() => undefined);
   }, []);
   const refreshHealth = useCallback(() => {
     api.health().then(setHealth).catch(() => setHealth(null));
@@ -322,18 +329,18 @@ export default function App() {
         <button className="ghost" onClick={() => setSettingsOpen(true)} title="Provider, API key, model, effort, password">
           Settings
         </button>
-        {authRequired && (
+        {authRequired && me && (
           <button
             className="ghost"
-            title="Sign out"
+            title={`Signed in as ${me.email} (${me.role}). Click to sign out.`}
             onClick={() => api.authLogout().then(() => window.dispatchEvent(new Event("qa:unauthorized"))).catch(fail)}
           >
-            Sign out
+            {me.email} · Sign out
           </button>
         )}
         <span className={`pill ${connected ? "ok" : "bad"}`}>{connected ? "live" : "disconnected"}</span>
       </header>
-      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} onSaved={refreshHealth} />}
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} onSaved={refreshHealth} me={me} />}
       <main className={`body ${chatOpen ? "" : "chat-closed"}`}>
         {chatOpen && (
           <ChatPanel
@@ -365,7 +372,6 @@ export default function App() {
               key={refKey || "none"}
               graph={graph}
               freshSince={freshSince}
-              relayoutToken={freshSince}
               update={update}
               onReset={reset}
               onExport={exportGraph}
