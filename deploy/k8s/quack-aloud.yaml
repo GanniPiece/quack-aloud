@@ -1,0 +1,83 @@
+# Minimal single-replica deployment. State is files on a volume, so keep replicas at 1
+# and use a ReadWriteOnce volume. Create the secret first:
+#   kubectl create secret generic quack-aloud --from-literal=ANTHROPIC_API_KEY=sk-ant-...
+# Put the app behind an Ingress with authentication before exposing it: the API key
+# pays for every message anyone sends.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: quack-aloud-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quack-aloud
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # the volume is RWO; never run two pods against it
+  selector:
+    matchLabels:
+      app: quack-aloud
+  template:
+    metadata:
+      labels:
+        app: quack-aloud
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/gannipiece/quack-aloud:latest   # or your registry
+          ports:
+            - containerPort: 8787
+          env:
+            - name: DATA_DIR
+              value: /data
+            - name: API_PORT
+              value: "8787"
+            - name: CLAUDE_MODEL
+              value: claude-opus-5
+            - name: CLAUDE_EFFORT
+              value: medium
+          envFrom:
+            - secretRef:
+                name: quack-aloud
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8787
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8787
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: quack-aloud-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quack-aloud
+spec:
+  selector:
+    app: quack-aloud
+  ports:
+    - port: 80
+      targetPort: 8787

@@ -39,6 +39,20 @@ Not in this document:
 
 To try the canvas without an API key, use "Import" (top right of the canvas) on `data/sample-graph.json`; it becomes a new project.
 
+## Run with Docker
+
+One image serves the API and the built UI on port 8787; projects live on a volume.
+
+| Step | Command | Note |
+|---|---|---|
+| 1 | `cp .env.example .env` and fill in `ANTHROPIC_API_KEY` | The container reads `.env` through `docker compose` |
+| 2 | `docker compose up --build` | Builds the image and starts it; open http://localhost:8787 |
+| 3 | Data is in `./data/docker/` on the host | `projects/`, `trash/`, backups. Mount any other path at `/data` if you prefer |
+
+Without compose: `docker build -t quack-aloud .` then `docker run -p 8787:8787 -e ANTHROPIC_API_KEY=... -v $PWD/data/docker:/data quack-aloud`.
+
+Kubernetes: `deploy/k8s/quack-aloud.yaml` is a minimal Deployment + Service + PVC. State is files, so it runs as one replica with a ReadWriteOnce volume (`strategy: Recreate`), and the API key comes from a Secret. Put it behind an Ingress with authentication before exposing it: every message costs API credit. `fs.watch` (which drives live updates) does not fire on some network filesystems; use a block volume, not NFS.
+
 ## Using a coding agent as the duck (no API key)
 
 Claude Code and Google Antigravity can play the duck by editing the open project file directly. The canvas and the in-app chat update live, and the cost is the agent's own plan, not an API key.
@@ -62,6 +76,7 @@ Both routes and the in-app chat write the same files, so they can be mixed. Avoi
 | `CLAUDE_MODEL` | `claude-opus-5` | **Optional** |
 | `CLAUDE_EFFORT` | `medium` | **Optional**. `low` / `medium` / `high` / `xhigh` / `max`. Higher is slower and costs more |
 | `API_PORT` | `8787` | **Optional**. The Vite dev server proxies `/api` to this port |
+| `DATA_DIR` | `./data` | **Optional**. Folder holding `projects/` and `trash/`. The Docker image sets `/data` |
 
 ## Projects
 
@@ -120,7 +135,8 @@ Both routes and the in-app chat write the same files, so they can be mixed. Avoi
 |---|---|
 | `npm run dev` | API server + Vite with hot reload |
 | `npm run build` | Typecheck, then build the UI into `dist/` |
-| `npm start` | Serve API and the built UI from one process on `API_PORT` |
+| `npm start` | Serve API and the built UI from one process on `API_PORT` (run `npm run build` first) |
+| `npm run docker:build` / `npm run docker:run` | Build the image / build and start with compose |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Unit tests (Vitest) for the graph merge logic, prompt assembly, and the four layouts. `npm run test:watch` re-runs on change |
 
