@@ -46,6 +46,10 @@ function writeSetting(key: string, value: string) {
 export default function App() {
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
+  useEffect(() => {
+    api.authStatus().then((s) => setAuthRequired(s.authRequired)).catch(() => undefined);
+  }, []);
   const refreshHealth = useCallback(() => {
     api.health().then(setHealth).catch(() => setHealth(null));
   }, []);
@@ -315,9 +319,18 @@ export default function App() {
             {health.provider} · {health.model}{health.effort ? ` · ${health.effort}` : ""}{health.keyConfigured ? "" : " · no key"}
           </button>
         )}
-        <button className="ghost" onClick={() => setSettingsOpen(true)} title="Provider, API key, model, effort">
+        <button className="ghost" onClick={() => setSettingsOpen(true)} title="Provider, API key, model, effort, password">
           Settings
         </button>
+        {authRequired && (
+          <button
+            className="ghost"
+            title="Sign out"
+            onClick={() => api.authLogout().then(() => window.dispatchEvent(new Event("qa:unauthorized"))).catch(fail)}
+          >
+            Sign out
+          </button>
+        )}
         <span className={`pill ${connected ? "ok" : "bad"}`}>{connected ? "live" : "disconnected"}</span>
       </header>
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} onSaved={refreshHealth} />}

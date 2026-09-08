@@ -64,12 +64,28 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 | 步驟 | Claude Code | Antigravity | Note |
 |---|---|---|---|
 | 1 | 在 Claude Code 開這個資料夾（Claude app 的 Code 分頁，或終端機的 `claude`） | 把這個資料夾當 workspace 開啟 | Claude Code 載入 `CLAUDE.md`；Antigravity 載入 `.agents/rules/quack-aloud.md`。兩份的規則和檔案格式相同 |
-| 2 | `npm run dev` 並開 http://localhost:5173 | 同左 | agent 透過 `http://localhost:8787/api/projects` 找到開啟中的專案 |
+| 2 | `npm run dev` 並開 http://localhost:5173 | 同左 | agent 直接看 `data/projects/` 找開啟中的 canvas（最近修改的那個檔），不需要 API，所以登入不會擋到它 |
 | 3 | 直接打想法，或 `/duck <想法>` | 在 agent panel 打 `/duck <想法>` | `/duck` 把意圖講明；Claude Code 直接打字也可以。指令清單在對話開始時讀取，clone 或 pull 之後要開新對話 `/duck` 才會出現 |
 | 4 | 訊息裡加「guide」「引導」或「質疑」會得到追問與質疑 | 同左 | 不加就只整理 |
 | 5 | 說「開新專案：<名稱>」開新專案，或「開新畫布：<名稱>」在目前專案下加一個 canvas | 同左 | agent 會在 `data/projects/` 建資料夾或檔案並把訊息其餘部分歸進去。到選單切換過去 |
 
 兩條路和 app 內的聊天寫的是同一批檔案，可以混用。避免在 agent 寫檔的同一刻在瀏覽器拖卡片；瀏覽器會拒絕過期的寫入並顯示「canvas changed elsewhere」。
+
+## 登入
+
+這個 app 用一組共用密碼保護自己，因為後面的 API key 每則訊息都要付費。
+
+| 情況 | 行為 | Note |
+|---|---|---|
+| 第一次開、還沒有密碼 | 出現「Set a password」畫面，至少 8 個字元 | 以 scrypt 雜湊存在 `data/auth.json`（只有擁有者可讀）。不要 commit 或分享這個檔 |
+| 之後 | 「Sign in」畫面 | session 是 HttpOnly cookie，30 天有效；密碼錯 5 次會鎖該來源 30 秒 |
+| Container、Kubernetes | 環境變數設 `APP_PASSWORD` | 一旦在 app 裡設過密碼，以 app 裡的為準 |
+| 改密碼 | Settings › Change password | 其他 session 全部登出 |
+| 登出 | 頂欄「Sign out」 | |
+| 不想要登入 | `AUTH_DISABLED=1` | 只適合別人碰不到的機器 |
+| 放在 reverse proxy 後面 | `TRUST_PROXY=1` | 讓 cookie 在 HTTPS 下標 Secure，速率限制也才看得到真實來源 |
+
+coding agent（Claude Code、Antigravity）不受影響：它們直接讀寫專案檔，不呼叫 API。
 
 ## 設定
 

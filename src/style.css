@@ -36,6 +36,24 @@ body { background: var(--bg); }
 .pill.as-button:hover { background: #e8e5dc; }
 button.link { font: inherit; font-size: inherit; color: #8a6d0b; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
 
+/* ---------- sign-in / setup ---------- */
+.auth-screen { min-height: 100%; display: grid; place-items: center; background: radial-gradient(circle at 50% 35%, #fff7d6 0%, #f7f6f2 55%, #efece4 100%); }
+.auth-card {
+  width: min(380px, 90vw); background: #fff; border-radius: 18px; padding: 28px 28px 24px; text-align: center;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.12); display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.auth-card h1 { margin: 4px 0 0; font-size: 20px; }
+.auth-card .muted { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0; }
+.auth-form { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 6px; }
+.auth-form input { font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #fbfaf7; outline: none; }
+.auth-form input:focus { border-color: var(--accent); }
+.auth-form .primary { font: inherit; font-size: 15px; font-weight: 600; padding: 10px 16px; border-radius: 10px; border: 0; background: var(--accent); color: #2b2a26; cursor: pointer; }
+.auth-form .primary:disabled { opacity: 0.5; cursor: default; }
+.auth-error { color: var(--danger); font-size: 13px; }
+.modal details summary { cursor: pointer; font-weight: 600; }
+.modal details .field-row { margin-top: 10px; }
+.modal .pw-msg { margin-right: auto; color: var(--muted); }
+
 /* ---------- modal (settings) ---------- */
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;

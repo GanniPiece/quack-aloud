@@ -21,17 +21,108 @@ import {
   renameProject,
   saveCanvas,
 } from "./projects";
+import {
+  authDisabled,
+  clearSessionCookie,
+  hasPassword,
+  isAuthenticated,
+  issueSession,
+  loginLocked,
+  passwordSource,
+  recordLogin,
+  requireAuth,
+  setPassword,
+  setSessionCookie,
+  validatePassword,
+  verifyPassword,
+} from "./auth";
 import { buildThinkInput } from "./prompt";
 import { PROVIDER_NAMES, RefusalError, describeProviderError, getProvider } from "./providers";
 import { EFFORTS, maskKey, resolveConfig, updateSettings, type Effort } from "./settings";
 
 const PORT = Number(process.env.API_PORT ?? 8787);
 const app = express();
+app.set("trust proxy", process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true");
 app.use(express.json({ limit: "8mb" }));
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 ensureMigrated();
 ensureOneProject();
+
+// ---------- auth ----------
+// A single shared password (set on first visit, or APP_PASSWORD) and a signed session cookie.
+// Every /api route below except these needs a session; static files are served regardless
+// because the login screen is part of the same page.
+
+app.get("/api/auth/status", (req, res) => {
+  res.json({ authRequired: !authDisabled(), configured: hasPassword(), authenticated: isAuthenticated(req), source: passwordSource() });
+});
+
+/** First run: create the password. Refused once one exists (change it in Settings instead). */
+app.post("/api/auth/setup", (req, res) => {
+  if (authDisabled()) {
+    res.status(400).json({ error: "Authentication is disabled (AUTH_DISABLED)." });
+    return;
+  }
+  if (hasPassword()) {
+    res.status(409).json({ error: "A password is already set. Sign in, then change it in Settings." });
+    return;
+  }
+  const problem = validatePassword(req.body?.password);
+  if (problem) {
+    res.status(400).json({ error: problem });
+    return;
+  }
+  setPassword(req.body.password);
+  setSessionCookie(req, res, issueSession());
+  res.status(201).json({ ok: true });
+});
+
+app.post("/api/auth/login", (req, res) => {
+  const ip = req.ip ?? "unknown";
+  const wait = loginLocked(ip);
+  if (wait > 0) {
+    res.status(429).json({ error: `Too many attempts. Try again in ${wait}s.` });
+    return;
+  }
+  const ok = typeof req.body?.password === "string" && verifyPassword(req.body.password);
+  recordLogin(ip, ok);
+  if (!ok) {
+    res.status(401).json({ error: "Wrong password." });
+    return;
+  }
+  setSessionCookie(req, res, issueSession());
+  res.json({ ok: true });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  clearSessionCookie(req, res);
+  res.json({ ok: true });
+});
+
+/** Change the password: needs a session and the current password. Ends every other session. */
+app.post("/api/auth/password", (req, res) => {
+  if (!isAuthenticated(req)) {
+    res.status(401).json({ error: "Sign in to continue.", authRequired: true });
+    return;
+  }
+  if (passwordSource() === "env" && !req.body?.current) {
+    // still allow: a file password will take precedence over APP_PASSWORD from now on
+  } else if (!(typeof req.body?.current === "string" && verifyPassword(req.body.current))) {
+    res.status(401).json({ error: "Current password is wrong." });
+    return;
+  }
+  const problem = validatePassword(req.body?.password);
+  if (problem) {
+    res.status(400).json({ error: problem });
+    return;
+  }
+  setPassword(req.body.password);
+  setSessionCookie(req, res, issueSession());
+  res.json({ ok: true });
+});
+
+app.use(requireAuth);
 
 // ---------- SSE: push changes to browsers ----------
 // event "graph":    { project, canvas, graph } whenever a canvas file changes
