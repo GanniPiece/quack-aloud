@@ -6,15 +6,20 @@ import { emptyGraph, graphSignature, type Graph } from "../shared/graph";
 import { DATA_DIR, applyThinkResult, normalize } from "./graph";
 import {
   PROJECTS_DIR,
+  createCanvas,
   createProject,
+  defaultCanvas,
+  deleteCanvas,
   deleteProject,
   ensureMigrated,
   ensureOneProject,
   isValidId,
   listProjects,
-  loadProject,
+  loadCanvas,
+  projectExists,
+  renameCanvas,
   renameProject,
-  saveProject,
+  saveCanvas,
 } from "./projects";
 import { buildThinkInput } from "./prompt";
 import { RefusalError, describeProviderError, getProvider } from "./providers";
@@ -27,9 +32,9 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 ensureMigrated();
 ensureOneProject();
 
-// ---------- SSE: push project changes to browsers ----------
-// event "graph": { project, graph } whenever a project file changes
-// event "projects": the project list whenever any file is added, removed, or saved
+// ---------- SSE: push changes to browsers ----------
+// event "graph":    { project, canvas, graph } whenever a canvas file changes
+// event "projects": the project tree whenever anything is added, removed, renamed, or saved
 
 const sseClients = new Set<Response>();
 
@@ -37,8 +42,8 @@ function send(res: Response, event: string, payload: unknown) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
 }
 
-function broadcastGraph(project: string, graph: Graph) {
-  for (const res of sseClients) send(res, "graph", { project, graph });
+function broadcastGraph(project: string, canvas: string, graph: Graph) {
+  for (const res of sseClients) send(res, "graph", { project, canvas, graph });
 }
 
 function broadcastProjects() {
@@ -53,10 +58,10 @@ app.get("/api/events", (req: Request, res: Response) => {
   res.flushHeaders();
   sseClients.add(res);
   send(res, "projects", listProjects());
-  const project = req.query.project;
-  if (isValidId(project)) {
-    const g = loadProject(project);
-    if (g) send(res, "graph", { project, graph: g });
+  const { project, canvas } = req.query;
+  if (isValidId(project) && isValidId(canvas)) {
+    const g = loadCanvas(project, canvas);
+    if (g) send(res, "graph", { project, canvas, graph: g });
   }
   const ping = setInterval(() => res.write(": ping\n\n"), 25_000);
   req.on("close", () => {
@@ -65,24 +70,30 @@ app.get("/api/events", (req: Request, res: Response) => {
   });
 });
 
-// Watch data/projects: whoever edits a file (server, Claude Code, an editor), broadcast it
+// Watch data/projects recursively: whoever edits a file (server, Claude Code, an editor), broadcast it
 const watchTimers = new Map<string, NodeJS.Timeout>();
-fs.watch(PROJECTS_DIR, (_event, filename) => {
-  if (!filename || !filename.endsWith(".json")) return;
-  const id = filename.slice(0, -5);
-  if (!isValidId(id)) return;
-  clearTimeout(watchTimers.get(id));
+fs.watch(PROJECTS_DIR, { recursive: true }, (_event, filename) => {
+  if (!filename) return;
+  const parts = String(filename).split(path.sep);
+  const key = parts.join("/");
+  clearTimeout(watchTimers.get(key));
   watchTimers.set(
-    id,
+    key,
     setTimeout(() => {
-      watchTimers.delete(id);
+      watchTimers.delete(key);
       try {
-        const g = loadProject(id);
-        if (g) broadcastGraph(id, g);
+        if (parts.length === 2 && parts[1].endsWith(".json") && parts[1] !== "project.json") {
+          const [pid, file] = parts;
+          const cid = file.slice(0, -5);
+          if (isValidId(pid) && isValidId(cid)) {
+            const g = loadCanvas(pid, cid);
+            if (g) broadcastGraph(pid, cid, g);
+          }
+        }
         broadcastProjects();
       } catch (err) {
         // The file may be mid-write (incomplete JSON); the next change will retry
-        console.warn(`[watch] could not read ${filename}, skipping:`, (err as Error).message);
+        console.warn(`[watch] could not read ${key}, skipping:`, (err as Error).message);
       }
     }, 150),
   );
@@ -99,19 +110,25 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, ...providerInfo(), projectsDir: PROJECTS_DIR });
 });
 
-/** Resolve the project id from ?project= or body.project; 400 if missing, 404 if unknown. */
-function requireProject(req: Request, res: Response): { id: string; graph: Graph } | null {
-  const id = (req.query.project ?? (req.body as { project?: unknown } | undefined)?.project) as unknown;
-  if (!isValidId(id)) {
-    res.status(400).json({ error: "Missing or invalid project id" });
+/**
+ * Resolve project + canvas from the query string or the body. The canvas may be omitted
+ * (scripts, curl): the most recently updated canvas of the project is used then.
+ */
+function requireCanvas(req: Request, res: Response): { pid: string; cid: string; graph: Graph } | null {
+  const body = (req.body ?? {}) as { project?: unknown; canvas?: unknown };
+  const pid = (req.query.project ?? body.project) as unknown;
+  if (!isValidId(pid) || !projectExists(pid)) {
+    res.status(404).json({ error: `No project "${String(pid)}"` });
     return null;
   }
-  const graph = loadProject(id);
-  if (!graph) {
-    res.status(404).json({ error: `No project "${id}"` });
+  const rawCid = (req.query.canvas ?? body.canvas) as unknown;
+  const cid = isValidId(rawCid) ? rawCid : defaultCanvas(pid);
+  const graph = cid ? loadCanvas(pid, cid) : null;
+  if (!cid || !graph) {
+    res.status(404).json({ error: `No canvas "${String(rawCid ?? "")}" in project "${pid}"` });
     return null;
   }
-  return { id, graph };
+  return { pid, cid, graph };
 }
 
 app.get("/api/projects", (_req, res) => {
@@ -125,26 +142,56 @@ app.post("/api/projects", (req, res) => {
   res.status(201).json(created);
 });
 
-app.patch("/api/projects/:id", (req, res) => {
-  const { id } = req.params;
+app.patch("/api/projects/:pid", (req, res) => {
+  const { pid } = req.params;
   const name = typeof req.body?.name === "string" ? req.body.name : "";
-  if (!isValidId(id)) {
-    res.status(400).json({ error: "Invalid project id" });
+  if (!isValidId(pid) || !renameProject(pid, name)) {
+    res.status(404).json({ error: `No project "${pid}"` });
     return;
   }
-  const graph = renameProject(id, name);
-  if (!graph) {
-    res.status(404).json({ error: `No project "${id}"` });
-    return;
-  }
-  res.json({ id, graph });
+  broadcastProjects();
+  res.json({ ok: true });
 });
 
-app.delete("/api/projects/:id", (req, res) => {
-  const { id } = req.params;
-  const result = isValidId(id) ? deleteProject(id) : { deleted: false };
+app.delete("/api/projects/:pid", (req, res) => {
+  const { pid } = req.params;
+  const result = isValidId(pid) ? deleteProject(pid) : { deleted: false };
   if (!result.deleted) {
-    res.status(404).json({ error: `No project "${id}"` });
+    res.status(404).json({ error: `No project "${pid}"` });
+    return;
+  }
+  broadcastProjects();
+  res.json({ ok: true, replacement: result.replacement ?? null });
+});
+
+app.post("/api/projects/:pid/canvases", (req, res) => {
+  const { pid } = req.params;
+  const name = typeof req.body?.name === "string" ? req.body.name : "";
+  const created = isValidId(pid) ? createCanvas(pid, name) : null;
+  if (!created) {
+    res.status(404).json({ error: `No project "${pid}"` });
+    return;
+  }
+  broadcastProjects();
+  res.status(201).json(created);
+});
+
+app.patch("/api/projects/:pid/canvases/:cid", (req, res) => {
+  const { pid, cid } = req.params;
+  const name = typeof req.body?.name === "string" ? req.body.name : "";
+  const graph = isValidId(pid) && isValidId(cid) ? renameCanvas(pid, cid, name) : null;
+  if (!graph) {
+    res.status(404).json({ error: `No canvas "${cid}" in project "${pid}"` });
+    return;
+  }
+  res.json({ id: cid, graph });
+});
+
+app.delete("/api/projects/:pid/canvases/:cid", (req, res) => {
+  const { pid, cid } = req.params;
+  const result = isValidId(pid) && isValidId(cid) ? deleteCanvas(pid, cid) : { deleted: false };
+  if (!result.deleted) {
+    res.status(404).json({ error: `No canvas "${cid}" in project "${pid}"` });
     return;
   }
   broadcastProjects();
@@ -152,57 +199,59 @@ app.delete("/api/projects/:id", (req, res) => {
 });
 
 app.get("/api/graph", (req, res) => {
-  const p = requireProject(req, res);
-  if (p) res.json(p.graph);
+  const c = requireCanvas(req, res);
+  if (c) res.json(c.graph);
 });
 
 /**
- * Body: { project, graph, baseSig } where baseSig is the signature of the last version the
- * client received. If the file has moved on since (another tab, Claude Code, an editor), the
- * write is refused with 409 and the current graph, so a stale tab can never clobber it.
+ * Body: { project, canvas, graph, baseSig } where baseSig is the signature of the last version
+ * the client received. If the file has moved on since (another tab, Claude Code, an editor),
+ * the write is refused with 409 and the current graph, so a stale tab can never clobber it.
  * A missing baseSig is accepted for scripts and curl.
  */
 app.put("/api/graph", (req, res) => {
-  const p = requireProject(req, res);
-  if (!p) return;
+  const c = requireCanvas(req, res);
+  if (!c) return;
   const body = req.body as { graph?: Graph; baseSig?: string };
   if (!body.graph) {
     res.status(400).json({ error: "Missing graph" });
     return;
   }
-  if (body.baseSig && graphSignature(p.graph) !== body.baseSig) {
-    res.status(409).json({ error: "The canvas changed elsewhere; reloaded it.", graph: p.graph });
+  if (body.baseSig && graphSignature(c.graph) !== body.baseSig) {
+    res.status(409).json({ error: "The canvas changed elsewhere; reloaded it.", graph: c.graph });
     return;
   }
-  res.json(saveProject(p.id, { ...body.graph, name: body.graph.name ?? p.graph.name }));
+  res.json(saveCanvas(c.pid, c.cid, { ...body.graph, name: body.graph.name ?? c.graph.name }));
 });
 
 app.post("/api/graph/reset", (req, res) => {
-  const p = requireProject(req, res);
-  if (p) res.json(saveProject(p.id, { ...emptyGraph(), name: p.graph.name }));
+  const c = requireCanvas(req, res);
+  if (c) res.json(saveCanvas(c.pid, c.cid, { ...emptyGraph(), name: c.graph.name }));
 });
 
-/** Import an exported file as a new project. Unknown fields are dropped, bad entries skipped. */
+/** Import an exported file as a new canvas in the given project. Unknown fields are dropped, bad entries skipped. */
 app.post("/api/graph/import", (req, res) => {
-  const body = req.body as { name?: unknown; graph?: unknown } | Partial<Graph> | undefined;
-  const raw = body && typeof body === "object" && "graph" in body && body.graph ? body.graph : body;
+  const body = req.body as { project?: unknown; name?: unknown; graph?: unknown } | undefined;
+  const pid = body?.project;
+  if (!isValidId(pid) || !projectExists(pid)) {
+    res.status(404).json({ error: `No project "${String(pid)}"` });
+    return;
+  }
+  const raw = body?.graph;
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as Partial<Graph>).nodes)) {
     res.status(400).json({ error: "Not a Quack Aloud export: expected a JSON object with a nodes array." });
     return;
   }
   const graph = normalize(raw);
-  const name =
-    (body && typeof body === "object" && "name" in body && typeof body.name === "string" && body.name) ||
-    graph.name ||
-    "Imported project";
-  const created = createProject(name, graph);
+  const name = (typeof body?.name === "string" && body.name) || graph.name || "Imported canvas";
+  const created = createCanvas(pid, name, graph)!;
   broadcastProjects();
   res.status(201).json(created);
 });
 
 app.post("/api/think", async (req, res) => {
-  const p = requireProject(req, res);
-  if (!p) return;
+  const c = requireCanvas(req, res);
+  if (!c) return;
   const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
   const guide = req.body?.guide === true;
   if (!message) {
@@ -215,8 +264,8 @@ app.post("/api/think", async (req, res) => {
     return;
   }
   try {
-    const result = await provider.think(buildThinkInput(p.graph, message, guide));
-    const next = saveProject(p.id, applyThinkResult(p.graph, message, result, { guide }));
+    const result = await provider.think(buildThinkInput(c.graph, message, guide));
+    const next = saveCanvas(c.pid, c.cid, applyThinkResult(c.graph, message, result, { guide }));
     res.json({ reply: result.reply, graph: next });
   } catch (err) {
     console.error("[think]", err);

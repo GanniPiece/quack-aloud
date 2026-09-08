@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type HealthInfo } from "./api";
+import { api, type CanvasRef, type HealthInfo } from "./api";
 import { Canvas } from "./components/Canvas";
 import { ChatPanel, type PendingMessage } from "./components/ChatPanel";
 import { DuckIcon } from "./components/DuckIcon";
@@ -11,7 +11,16 @@ const FRESH_MS = 6000;
 const GUIDE_KEY = "quackaloud.guide";
 const CHAT_KEY = "quackaloud.chat";
 const VIEW_KEY = "quackaloud.view";
-const PROJECT_KEY = "quackaloud.project";
+const CANVAS_KEY = "quackaloud.canvas"; // "<project>/<canvas>"
+const LEGACY_PROJECT_KEY = "quackaloud.project";
+
+function readCanvasRef(): CanvasRef | null {
+  const v = readSetting(CANVAS_KEY, "");
+  const [project, canvas] = v.split("/");
+  if (project && canvas) return { project, canvas };
+  const legacy = readSetting(LEGACY_PROJECT_KEY, "");
+  return legacy ? { project: legacy, canvas: "" } : null;
+}
 
 type View = "map" | "timeline";
 
@@ -41,8 +50,9 @@ export default function App() {
   const [pending, setPending] = useState<PendingMessage[]>([]);
   const [restore, setRestore] = useState<{ key: number; text: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [project, setProject] = useState<string | null>(() => readSetting(PROJECT_KEY, "") || null);
-  const { graph, projects, connected, update, adopt } = useGraph(project, setNotice);
+  const [sel, setSel] = useState<CanvasRef | null>(readCanvasRef);
+  const ref = sel && sel.canvas ? sel : null; // a ref without a canvas is only a hint for the effect below
+  const { graph, projects, connected, update, adopt } = useGraph(ref, setNotice);
   const [freshSince, setFreshSince] = useState<number>(Number.MAX_SAFE_INTEGER);
   const [guide, setGuide] = useState<boolean>(() => readSetting<"on" | "off">(GUIDE_KEY, "off") === "on");
   const [view, setView] = useState<View>(() => readSetting<View>(VIEW_KEY, "map"));
@@ -52,20 +62,23 @@ export default function App() {
     api.health().then(setHealth).catch(() => setHealth(null));
   }, []);
 
-  const selectProject = useCallback((id: string | null) => {
-    setProject(id);
-    writeSetting(PROJECT_KEY, id ?? "");
+  const selectCanvas = useCallback((next: CanvasRef | null) => {
+    setSel(next);
+    writeSetting(CANVAS_KEY, next ? `${next.project}/${next.canvas}` : "");
     setError(null);
   }, []);
 
-  // Keep the selection valid against the live project list: fall back to the newest project.
-  // Never create projects from here: the server guarantees at least one exists, and a reactive
-  // "create when empty" once produced a dozen duplicates in a single second.
+  // Keep the selection valid against the live project tree: an unknown project falls back to
+  // the newest one, an unknown canvas to the project's newest canvas. Never create anything
+  // from here: the server guarantees every project has a canvas, and a reactive "create when
+  // empty" once produced a dozen duplicates in a single second.
   useEffect(() => {
     if (!projects || projects.length === 0) return;
-    if (project && projects.some((p) => p.id === project)) return;
-    selectProject(projects[0].id);
-  }, [projects, project, selectProject]);
+    const project = projects.find((p) => p.id === sel?.project) ?? projects[0];
+    if (project.canvases.length === 0) return;
+    const canvas = project.canvases.find((c) => c.id === sel?.canvas) ?? project.canvases[0];
+    if (sel?.project !== project.id || sel?.canvas !== canvas.id) selectCanvas({ project: project.id, canvas: canvas.id });
+  }, [projects, sel, selectCanvas]);
 
   // Notices (e.g. "canvas changed elsewhere") fade on their own
   useEffect(() => {
@@ -103,23 +116,26 @@ export default function App() {
     setError(null);
     setPending((q) => [...q, { id: Date.now() + Math.random(), text, status: q.length === 0 ? "sending" : "queued" }]);
   }, []);
+  const refKey = ref ? `${ref.project}/${ref.canvas}` : "";
 
   // One request in flight at a time. Gated by a ref, not by `busy`, so the effect never
   // cancels its own request when it flips the busy flag.
   const inFlight = useRef(false);
-  const projectRef = useRef(project);
-  projectRef.current = project;
+  const refKeyRef = useRef(refKey);
+  refKeyRef.current = refKey;
   useEffect(() => {
-    if (inFlight.current || pending.length === 0 || !project) return;
+    if (inFlight.current || pending.length === 0 || !ref) return;
     const head = pending[0];
+    const target = ref;
+    const targetKey = refKey;
     inFlight.current = true;
     setBusy(true);
     setPending((q) => q.map((p, i) => ({ ...p, status: i === 0 ? "sending" : "queued" })));
     const started = Date.now();
     api
-      .think(project, head.text, guide)
+      .think(target, head.text, guide)
       .then((res) => {
-        if (projectRef.current === project) {
+        if (refKeyRef.current === targetKey) {
           adopt(res.graph);
           setFreshSince(started);
         }
@@ -137,51 +153,84 @@ export default function App() {
         inFlight.current = false;
         setBusy(false);
       });
-  }, [pending, project, guide, adopt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, refKey, guide, adopt]);
 
   const reset = useCallback(() => {
-    if (!project) return;
-    api.reset(project).then(adopt).catch((err) => setError((err as Error).message));
-  }, [adopt, project]);
+    if (!ref) return;
+    api.reset(ref).then(adopt).catch((err) => setError((err as Error).message));
+  }, [adopt, ref]);
 
-  // ---------- projects ----------
+  // ---------- projects and canvases ----------
+
+  const fail = useCallback((err: unknown) => setNotice((err as Error).message), []);
 
   const createProject = useCallback(
     (name: string) => {
       api
         .createProject(name)
-        .then(({ id }) => {
-          selectProject(id);
-          setNotice(`Created "${name}".`);
+        .then(({ id, canvas }) => {
+          selectCanvas({ project: id, canvas });
+          setNotice(`Created project "${name}".`);
         })
-        .catch((err) => setNotice((err as Error).message));
+        .catch(fail);
     },
-    [selectProject],
+    [selectCanvas, fail],
   );
 
-  const renameProject = useCallback(
-    (id: string, name: string) => {
-      api
-        .renameProject(id, name)
-        .then(({ graph: g }) => {
-          if (id === project) adopt(g);
-        })
-        .catch((err) => setNotice((err as Error).message));
-    },
-    [adopt, project],
-  );
+  const renameProject = useCallback((id: string, name: string) => api.renameProject(id, name).catch(fail), [fail]);
 
   const deleteProject = useCallback(
     (id: string) => {
       api
         .deleteProject(id)
         .then(({ replacement }) => {
-          if (id === project) selectProject(replacement);
+          if (id === sel?.project) selectCanvas(replacement ? { project: replacement, canvas: "" } : null);
           setNotice("Project moved to data/trash.");
         })
-        .catch((err) => setNotice((err as Error).message));
+        .catch(fail);
     },
-    [project, selectProject],
+    [sel, selectCanvas, fail],
+  );
+
+  const createCanvas = useCallback(
+    (project: string, name: string) => {
+      api
+        .createCanvas(project, name)
+        .then(({ id }) => {
+          selectCanvas({ project, canvas: id });
+          setNotice(`Created canvas "${name}".`);
+        })
+        .catch(fail);
+    },
+    [selectCanvas, fail],
+  );
+
+  const renameCanvas = useCallback(
+    (target: CanvasRef, name: string) => {
+      api
+        .renameCanvas(target, name)
+        .then(({ graph: g }) => {
+          if (target.project === ref?.project && target.canvas === ref?.canvas) adopt(g);
+        })
+        .catch(fail);
+    },
+    [adopt, ref, fail],
+  );
+
+  const deleteCanvas = useCallback(
+    (target: CanvasRef) => {
+      api
+        .deleteCanvas(target)
+        .then(({ replacement }) => {
+          if (target.project === sel?.project && target.canvas === sel?.canvas) {
+            selectCanvas({ project: target.project, canvas: replacement ?? "" });
+          }
+          setNotice("Canvas moved to data/trash.");
+        })
+        .catch(fail);
+    },
+    [sel, selectCanvas, fail],
   );
 
   // ---------- export / import (one project = one file) ----------
@@ -191,7 +240,8 @@ export default function App() {
     const d = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
-    const slug = (graph.name ?? "project").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "project";
+    const projectName = projects?.find((p) => p.id === ref?.project)?.name ?? "project";
+    const slug = `${projectName}-${graph.name ?? "canvas"}`.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-+|-+$/g, "") || "canvas";
     const blob = new Blob([JSON.stringify(graph, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -201,8 +251,8 @@ export default function App() {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setNotice(`Exported "${graph.name ?? "project"}" as a JSON file.`);
-  }, [graph]);
+    setNotice(`Exported "${graph.name ?? "canvas"}" as a JSON file.`);
+  }, [graph, projects, ref]);
 
   const importGraph = useCallback(
     async (file: File) => {
@@ -213,17 +263,18 @@ export default function App() {
         setNotice(`"${file.name}" is not valid JSON.`);
         return;
       }
-      const fallbackName = file.name.replace(/\.json$/i, "").replace(/^(quack-aloud|rubber-duck)-/, "").replace(/-\d{8}-\d{4}$/, "") || "Imported project";
+      const fallbackName = file.name.replace(/\.json$/i, "").replace(/^(quack-aloud|rubber-duck)-/, "").replace(/-\d{8}-\d{4}$/, "") || "Imported canvas";
       const name = (data as { name?: unknown })?.name;
+      if (!ref) return;
       try {
-        const { id, graph: g } = await api.importGraph(typeof name === "string" && name ? name : fallbackName, data);
-        selectProject(id);
-        setNotice(`Imported "${g.name}" as a new project.`);
+        const { id, graph: g } = await api.importGraph(ref.project, typeof name === "string" && name ? name : fallbackName, data);
+        selectCanvas({ project: ref.project, canvas: id });
+        setNotice(`Imported "${g.name}" as a new canvas in this project.`);
       } catch (err) {
         setNotice((err as Error).message);
       }
     },
-    [selectProject],
+    [ref, selectCanvas],
   );
 
   const disabledReason =
@@ -237,11 +288,14 @@ export default function App() {
         <span className="title"><DuckIcon size={26} /> Quack Aloud</span>
         <ProjectSwitcher
           projects={projects ?? []}
-          current={project}
-          onSelect={selectProject}
-          onCreate={createProject}
-          onRename={renameProject}
-          onDelete={deleteProject}
+          current={ref}
+          onSelect={selectCanvas}
+          onCreateProject={createProject}
+          onRenameProject={renameProject}
+          onDeleteProject={deleteProject}
+          onCreateCanvas={createCanvas}
+          onRenameCanvas={renameCanvas}
+          onDeleteCanvas={deleteCanvas}
         />
         <span className="spacer" />
         <button className="ghost" onClick={toggleChat} title={chatOpen ? "Hide the chat panel" : "Show the chat panel"}>
@@ -280,12 +334,12 @@ export default function App() {
               {projects && projects.length === 0 ? (
                 <button className="ghost" onClick={() => createProject("My project")}>Create a project</button>
               ) : (
-                "Loading project…"
+                "Loading canvas…"
               )}
             </div>
           ) : view === "map" ? (
             <Canvas
-              key={project ?? "none"}
+              key={refKey || "none"}
               graph={graph}
               freshSince={freshSince}
               relayoutToken={freshSince}

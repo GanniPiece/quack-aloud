@@ -46,6 +46,8 @@ body { background: var(--bg); }
   background: #fff; color: var(--text); max-width: 260px;
 }
 .project-name { min-width: 200px; outline: none; }
+.project-switcher .crumb { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.canvas-select { max-width: 220px; }
 .project-name:focus { border-color: var(--accent); }
 
 .body { flex: 1; display: grid; grid-template-columns: 380px 1fr; min-height: 0; }

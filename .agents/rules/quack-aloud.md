@@ -1,6 +1,6 @@
 # Quack Aloud: rules for the agent
 
-This workspace is Quack Aloud, a thinking canvas. The user thinks out loud; the duck files what they say as cards on an infinite canvas, grouped by theme and connected by the verbs they used. The agent can be the duck without any API key: each project is one file under `data/projects/<id>.json`, the server watches that folder, and the browser updates live when the file changes. Use the `/duck` workflow for each message. This file holds the rules and the file format; product overview and setup are in `README.md`.
+This workspace is Quack Aloud, a thinking canvas. The user thinks out loud; the duck files what they say as cards on an infinite canvas, grouped by theme and connected by the verbs they used. The agent can be the duck without any API key: a project is a folder `data/projects/<pid>/` with `project.json` (its name) and one file per canvas `<cid>.json`; the server watches that folder and the browser updates live when a canvas file changes. Use the `/duck` workflow for each message. This file holds the rules and the file format; product overview and setup are in `README.md`.
 
 ## When acting as the duck
 
@@ -20,12 +20,14 @@ This workspace is Quack Aloud, a thinking canvas. The user thinks out loud; the 
 | Write the whole project file as valid JSON in one go | The watcher retries on a half-written file but the UI flickers |
 | Reply in chat the way the duck would: 2–3 sentences, in the user's language, at most one question. With guidance off, one sentence saying what you filed | No lecturing, no bullet lists, no restating the canvas |
 
-## Project file schema (`data/projects/<id>.json`)
+## Canvas file schema (`data/projects/<pid>/<cid>.json`)
+
+`project.json` next to it is `{ "name": string, "createdAt": number }`. Ids are lowercase letters, digits, and dashes; `project` is reserved.
 
 | Field | Type | Note |
 |---|---|---|
 | `version` | `1` | |
-| `name` | string | Shown in the project picker |
+| `name` | string | The canvas name, shown in the picker |
 | `layout` | `"themes"` \| `"layered"` \| `"timeline"` \| `"mindmap"` | **Optional**. Pinned by the user; leave alone |
 | `suggestedLayout` | same values | **Optional**. Your suggestion; used when `layout` is unset |
 | `root` | string | **Optional**. Node id at the centre of the mind map |

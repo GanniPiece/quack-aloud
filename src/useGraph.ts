@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { graphSignature, type Graph } from "../shared/graph";
-import { ConflictError, api, type ProjectInfo } from "./api";
+import { ConflictError, api, type CanvasRef, type ProjectInfo } from "./api";
 
 const PERSIST_DEBOUNCE_MS = 400;
 
@@ -14,7 +14,9 @@ const PERSIST_DEBOUNCE_MS = 400;
  * - Every PUT carries the signature of the last server version we saw; if the server has
  *   moved on it answers 409 and we adopt its version instead of overwriting it
  */
-export function useGraph(project: string | null, onConflict?: (message: string) => void) {
+export function useGraph(ref: CanvasRef | null, onConflict?: (message: string) => void) {
+  const project = ref?.project ?? null;
+  const canvas = ref?.canvas ?? null;
   const [graph, setGraph] = useState<Graph | null>(null);
   const [projects, setProjects] = useState<ProjectInfo[] | null>(null);
   const [connected, setConnected] = useState(false);
@@ -23,8 +25,8 @@ export function useGraph(project: string | null, onConflict?: (message: string) 
   const dirty = useRef(false);
   const pending = useRef<Graph | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const projectRef = useRef(project);
-  projectRef.current = project;
+  const current = useRef<CanvasRef | null>(ref);
+  current.current = ref;
 
   useEffect(() => {
     // Switching projects: drop the old canvas and any unsaved debounced change for it
@@ -35,31 +37,32 @@ export function useGraph(project: string | null, onConflict?: (message: string) 
     baseSig.current = "";
     setGraph(null);
 
-    const url = project ? `/api/events?project=${encodeURIComponent(project)}` : "/api/events";
+    const url =
+      project && canvas ? `/api/events?project=${encodeURIComponent(project)}&canvas=${encodeURIComponent(canvas)}` : "/api/events";
     const es = new EventSource(url);
     es.onopen = () => setConnected(true);
     es.onerror = () => setConnected(false);
     es.addEventListener("projects", (ev) => setProjects(JSON.parse((ev as MessageEvent).data) as ProjectInfo[]));
     es.addEventListener("graph", (ev) => {
-      const { project: id, graph: incoming } = JSON.parse((ev as MessageEvent).data) as { project: string; graph: Graph };
-      if (id !== projectRef.current) return;
+      const { project: pid, canvas: cid, graph: incoming } = JSON.parse((ev as MessageEvent).data) as { project: string; canvas: string; graph: Graph };
+      if (pid !== current.current?.project || cid !== current.current?.canvas) return;
       const sig = graphSignature(incoming);
       baseSig.current = sig; // whatever the server holds now is our new base, echo or not
       if (recentlySent.current.includes(sig)) return;
       setGraph((prev) => (prev && graphSignature(prev) === sig ? prev : incoming));
     });
     return () => es.close();
-  }, [project]);
+  }, [project, canvas]);
 
   const flush = useCallback(() => {
     const g = pending.current;
-    const id = projectRef.current;
+    const target = current.current;
     pending.current = null;
-    if (!g || !id) return;
+    if (!g || !target) return;
     const sig = graphSignature(g);
     recentlySent.current = [...recentlySent.current.slice(-4), sig];
     api
-      .putGraph(id, g, baseSig.current)
+      .putGraph(target, g, baseSig.current)
       .then(() => {
         baseSig.current = sig;
       })
