@@ -4,16 +4,16 @@
 
 中文版：[README.zh-TW.md](README.zh-TW.md)
 
-Quack Aloud is a "rubber duck debugging" tool with a canvas. You describe your understanding of something in fragments in the chat; an LLM organises those fragments into cards, sorts them into themes, and draws the relations between them on an infinite canvas next to it. With **AI guidance** off that is all it does. With it on, the duck also adds its own questions and observations, marked as its own. This document is for anyone running or extending the app.
+Quack Aloud is rubber-duck debugging with a canvas: you think out loud to a duck, and it files what you say as cards, themes, and relations on an infinite canvas next to the chat. Switch on **AI guidance** and it also asks questions and pushes back, in cards marked as its own. This document is for anyone running or extending the app.
 
 Not in this document:
 - How Claude Code edits the canvas directly: see [CLAUDE.md](CLAUDE.md)
 
 ## Why
 
-Most AI tools invert the order of thinking: you ask, the model answers, and you are left checking work you did not do. Quack Aloud borrows two working habits Terence Tao describes for using AI in mathematics.[^tao] First, the substance stays human: the mathematician writes, or at least carefully reviews, the statements, and only the mechanical part is delegated. Here you do the thinking out loud, and the duck only files it: it takes what you said apart into people, events, and claims, sorts it, and draws the relations, keeping the fragment of your sentence each card came from so you can check every one. Second, AI is most useful when it red-teams your own work, and should otherwise be kept to work you could red-team yourself. With guidance off the duck does nothing you could not check at a glance; with it on, it looks for the contradiction, the unstated assumption, the leap from evidence to conclusion, and says so. It never writes the idea for you. What you end up with is your own understanding, laid out so you can see where it is thin.
+Most AI tools invert the order of thinking: you ask, the model answers, and you are left checking work you did not do. Quack Aloud borrows two habits Terence Tao recommends for using AI in mathematics:[^tao] keep the substance human and delegate only the mechanical part, and use AI mostly to red-team your own work. The duck never writes the idea; it files yours so you can check every card against your own words, and, when asked, it argues back. What you end up with is your own understanding, laid out so you can see where it is thin.
 
-[^tao]: Terence Tao, ["Mathematical methods and human thought in the age of AI"](https://terrytao.wordpress.com/2026/03/29/mathematical-methods-and-human-thought-in-the-age-of-ai/) (blog, 29 March 2026): the statements of formalised theorems should be generated, or at least carefully reviewed, by humans while the proofs can be delegated to automated tools; and AI use is best restricted to red-teaming one's own work, or to "blue-team" work that one is able to red-team oneself. See also his ICM 2026 public lecture ["Mathematics in the age of AI"](https://mathstodon.xyz/@tao/116977934921819775) (July 2026) and his running summary at [teorth.github.io/tao-web/ai-views.html](https://teorth.github.io/tao-web/ai-views.html). His subject is proofs; this tool only borrows the habits.
+[^tao]: Terence Tao, ["Mathematical methods and human thought in the age of AI"](https://terrytao.wordpress.com/2026/03/29/mathematical-methods-and-human-thought-in-the-age-of-ai/) (29 March 2026): statements of theorems written or carefully reviewed by humans, proofs delegated to tools; AI use kept to red-teaming one's own work or to work one can red-team oneself. See also his ICM 2026 lecture ["Mathematics in the age of AI"](https://mathstodon.xyz/@tao/116977934921819775). His subject is proofs; this tool only borrows the habits.
 
 ## Demo
 
