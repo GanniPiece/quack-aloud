@@ -9,7 +9,9 @@ Quack Aloud 是一個帶畫布的「橡皮鴨除錯法」工具。你在聊天�
 
 ## 為什麼做這個
 
-大多數 AI 工具把思考的順序倒過來：你提問、模型作答，然後你去檢查一份不是自己做的功課。Quack Aloud 維持 Terence Tao 談到和 AI 合作時主張的順序：人負責提出問題、掌握全貌，由上而下；模型負責繁瑣的、由下而上的部分。在這裡，這個分工就是整個介面。你負責把想法說出來；鴨子只把它拆成人物、事件、說法，歸類、畫出關係，你要求的話再指出缺口、提出質疑。它從不替你想出那個想法。最後你得到的是自己的理解，攤開來讓你看見哪裡還薄。
+大多數 AI 工具把思考的順序倒過來：你提問、模型作答，然後你去檢查一份不是自己做的功課。Quack Aloud 維持 Terence Tao 談數學與 AI 合作時描述的分工：定理的敘述由人來寫、或至少仔細審過，方向由人掌握，由上而下；證明和例行的、由下而上的部分才交給自動化工具。[^tao] 在這裡，這個分工就是整個介面。你負責把想法說出來；鴨子只把它拆成人物、事件、說法，歸類、畫出關係，你要求的話再指出缺口、提出質疑。它從不替你想出那個想法。最後你得到的是自己的理解，攤開來讓你看見哪裡還薄。
+
+[^tao]: Terence Tao，[〈Mathematical methods and human thought in the age of AI〉](https://terrytao.wordpress.com/2026/03/29/mathematical-methods-and-human-thought-in-the-age-of-ai/)（部落格，2026 年 3 月 29 日）：定理的敘述由人產生或仔細審閱，證明可以交給自動化工具；AI 的使用應限制在自己還能「red team」檢驗的範圍。以及他在 ICM 2026 的公開演講 [〈Mathematics in the age of AI〉](https://mathstodon.xyz/@tao/116977934921819775)（2026 年 7 月）。他本人整理的 AI 觀點總覽在 [teorth.github.io/tao-web/ai-views.html](https://teorth.github.io/tao-web/ai-views.html)。「由上而下」是我們的措辭。
 
 ## Demo
 
