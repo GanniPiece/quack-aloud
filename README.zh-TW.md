@@ -2,16 +2,16 @@
 
 > status: MVP，單人使用、只在本機執行
 
-Quack Aloud 是一個帶畫布的「橡皮鴨除錯法」工具。你在聊天欄一段一段說出自己對某件事的理解，LLM 把這些片段拆成卡片、歸入主題，並在旁邊的無邊際畫布上畫出彼此的關係。**AI guidance** 關閉時它只做整理；開啟時鴨子會再補上自己的追問、觀察與質疑，並標示為它自己的。本文件給要執行或擴充這個 app 的人看。English version: [README.md](README.md)。
+Quack Aloud 是帶畫布的橡皮鴨除錯法：你對一隻鴨子把想法說出來，它把你說的歸檔成卡片、主題和關係，畫在聊天欄旁邊的無邊際畫布上。開啟 **AI guidance** 它還會追問和質疑，用標示為它自己的卡片。本文件給要執行或擴充這個 app 的人看。English version: [README.md](README.md)。
 
 不在本文件：
 - Claude Code 直接改畫布的做法：見 [CLAUDE.md](CLAUDE.md)
 
 ## 為什麼做這個
 
-大多數 AI 工具把思考的順序倒過來：你提問、模型作答，然後你去檢查一份不是自己做的功課。Quack Aloud 借用了 Terence Tao 談數學與 AI 合作時的兩個工作習慣。[^tao] 第一，內容本身留給人：定理的敘述由數學家自己寫、或至少仔細審過，只把機械的部分交出去。在這裡，想法由你說出來，鴨子只負責歸檔：把你說的拆成人物、事件、說法，歸類、畫出關係，並保留每張卡對應的原句片段，讓你每一張都能對回去。第二，AI 最有用的用法是 red-team 你自己的工作；其他用途要限制在你自己也能 red-team 檢驗的範圍。guidance 關閉時，鴨子做的每件事你都能一眼核對；打開時，它專找矛盾、沒說出口的假設、從證據跳到結論的地方，並直接說出來。它從不替你想出那個想法。最後你得到的是自己的理解，攤開來讓你看見哪裡還薄。
+大多數 AI 工具把思考的順序倒過來：你提問、模型作答，然後你去檢查一份不是自己做的功課。Quack Aloud 借用 Terence Tao 談數學與 AI 合作時建議的兩個習慣：[^tao] 內容留給人、只把機械的部分交出去，以及 AI 主要拿來 red-team 自己的工作。鴨子從不替你想出那個想法；它歸檔的是你的話，每張卡都能對回原句，你要求時它才反駁。最後你得到的是自己的理解，攤開來讓你看見哪裡還薄。
 
-[^tao]: Terence Tao，[〈Mathematical methods and human thought in the age of AI〉](https://terrytao.wordpress.com/2026/03/29/mathematical-methods-and-human-thought-in-the-age-of-ai/)（部落格，2026 年 3 月 29 日）：形式化定理的敘述應由人產生、或至少仔細審閱，證明可以交給自動化工具；AI 的使用最好限制在 red-team 自己的工作，或是自己有能力 red-team 的「blue-team」工作。另見他在 ICM 2026 的公開演講 [〈Mathematics in the age of AI〉](https://mathstodon.xyz/@tao/116977934921819775)（2026 年 7 月）與他本人整理的 [AI 觀點總覽](https://teorth.github.io/tao-web/ai-views.html)。他談的是證明；這個工具只是借用那兩個習慣。
+[^tao]: Terence Tao，[〈Mathematical methods and human thought in the age of AI〉](https://terrytao.wordpress.com/2026/03/29/mathematical-methods-and-human-thought-in-the-age-of-ai/)（2026 年 3 月 29 日）：定理的敘述由人寫或仔細審閱，證明交給工具；AI 的使用限制在 red-team 自己的工作、或自己有能力 red-team 的工作。另見他 ICM 2026 的演講 [〈Mathematics in the age of AI〉](https://mathstodon.xyz/@tao/116977934921819775)。他談的是證明；這個工具只是借用那兩個習慣。
 
 ## Demo
 
