@@ -1,0 +1,11 @@
+[
+  {
+    "id": "u-990257518e82",
+    "email": "gannipiece.tw@gmail.com",
+    "role": "owner",
+    "createdAt": 1788879997071,
+    "passwordHash": "7ce5e3b50759cadc844a789babb27eba6b1de708981270270b92b79430817ca6b99d9a1b7454f8ab356ea12faa8204d50018b36b4665ea5d067166c27e7636d2",
+    "salt": "64f2627c9e472d8cffbb03cc3de6f9b9",
+    "sessionVersion": 1
+  }
+]

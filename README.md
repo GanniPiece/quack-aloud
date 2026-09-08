@@ -80,6 +80,8 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 | Claude Code | Nothing: `.mcp.json` in this repo registers it as `quack-aloud`; approve the server when Claude Code asks. `claude mcp add quack-aloud -- npx tsx server/mcp.ts` does the same from anywhere (run in this folder, or set `DATA_DIR`) |
 | Antigravity, other MCP clients | Add a stdio server with command `npx tsx server/mcp.ts` and this folder as the working directory |
 
+Testing it: `npm test` covers the tool logic (`server/mcp.test.ts`) and the protocol itself (`server/mcp.protocol.test.ts` connects the SDK client to the server over an in-memory transport and runs the handshake, tool listing, schema validation, and calls). To try it by hand, `npx @modelcontextprotocol/inspector npx tsx server/mcp.ts` opens a web UI where you can call each tool; in Claude Code, start a new session in this folder and type `/mcp` to see `quack-aloud` listed.
+
 Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
 
 ## Sign-in
