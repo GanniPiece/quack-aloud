@@ -1,0 +1,9 @@
+{
+  "_comment": "Use this instead of .mcp.json when the app runs only in Docker: copy it to .mcp.json, or point your MCP client at this command. The MCP server then runs inside the container over stdio.",
+  "mcpServers": {
+    "quack-aloud": {
+      "command": "docker",
+      "args": ["compose", "exec", "-T", "quack-aloud", "npx", "tsx", "server/mcp.ts"]
+    }
+  }
+}
