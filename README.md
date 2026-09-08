@@ -31,7 +31,8 @@ Most AI tools invert the order of thinking: you ask, the model answers, and you 
 | `server/` | Express API on `API_PORT` | Watches `data/projects/` and pushes every change to browsers over SSE (`/api/events`) |
 | `server/providers/` | LLM backends | Swappable via `PROVIDER`. Only `claude` is implemented |
 | `src/` | Vite + React + React Flow UI | Chat on the left, canvas on the right |
-| `CLAUDE.md`, `.agents/` | Rules for coding agents that act as the duck without an API key | Claude Code reads `CLAUDE.md`; Google Antigravity reads `.agents/rules/quack-aloud.md` and gets a `/duck` workflow from `.agents/workflows/duck.md`. Run `npm run dev`, open the project in the browser, then type your thought to the agent (`/duck …` in either; plain text also works in Claude Code; add "guide" or "引導" for questions and challenges). It edits the project file and the canvas updates live, on the agent's own plan rather than a Gemini or Claude API key |
+| `server/mcp.ts`, `server/mcpHttp.ts` | The duck as an MCP server: five tools, over stdio or at `/mcp` over HTTP | Lets Claude Code, Antigravity, or any MCP client file cards through `duck_turn` on the agent's own plan, no API key. See "MCP server" below |
+| `CLAUDE.md`, `.agents/` | Rules for coding agents that act as the duck | Claude Code reads `CLAUDE.md`; Antigravity reads `.agents/rules/quack-aloud.md` and gets a `/duck` workflow. Both prefer the MCP tools and fall back to editing the project file |
 
 ## Getting started
 
@@ -73,21 +74,24 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 
 ### MCP server (recommended for agents)
 
-`server/mcp.ts` is an MCP server over stdio. It gives an agent five tools: `list_projects`, `read_canvas`, `create_project`, `create_canvas`, and `duck_turn`. The agent reads the canvas, decides the decomposition, and hands it to `duck_turn`, which applies the same merge logic as the in-app chat (placement, id collisions, hierarchy, chat history, organise-only filtering). No coordinates or JSON by hand, no API key, no sign-in: it works on the project files directly and the browser updates live.
+The app is also an MCP server. An agent gets five tools: `list_projects`, `read_canvas`, `create_project`, `create_canvas`, and `duck_turn`. It reads the canvas, decides the decomposition, and hands it to `duck_turn`, which applies the same merge logic as the in-app chat (placement, id collisions, hierarchy, chat history, organise-only filtering). No coordinates or JSON by hand. The server's instructions carry the same organising rules as the chat prompt, so any MCP client that connects knows how to be the duck.
+
+Two transports serve the same tools; pick by where the agent runs relative to the app:
+
+| Transport | Use it when | How it runs | Auth |
+|---|---|---|---|
+| **HTTP** at `/mcp` on the API port | Default. The app is running (`npm run dev`, Docker, Kubernetes), locally or on another machine; several agents share one endpoint | Part of the app process; nothing extra to start | Bearer token from Settings › MCP access (owner only). `MCP_TOKEN` pins it; rotate it in Settings if a copy leaks. The token grants read and write on every project, so use HTTPS outside localhost |
+| **stdio** via `npx tsx server/mcp.ts` | The agent runs on the machine that holds this repo and `data/`, and the app may not be running | The MCP client starts it as a child process and stops it afterwards; it edits the project files directly | None; it is local by construction |
 
 | Client | Setup |
 |---|---|
-| Claude Code | Nothing: `.mcp.json` in this repo registers it as `quack-aloud`; approve the server when Claude Code asks. `claude mcp add quack-aloud -- npx tsx server/mcp.ts` does the same from anywhere (run in this folder, or set `DATA_DIR`) |
-| Antigravity, other MCP clients | Add a stdio server with command `npx tsx server/mcp.ts` and this folder as the working directory |
+| Claude Code, HTTP | Settings › MCP access › "copy the add command", then paste: `claude mcp add --transport http quack-aloud http://localhost:8787/mcp --header "Authorization: Bearer <token>"` (use the real host for a remote app) |
+| Claude Code, stdio | Nothing: `.mcp.json` in this repo registers `quack-aloud`; approve it when asked. From another folder: `claude mcp add quack-aloud -- npx tsx server/mcp.ts` (run in this folder, or set `DATA_DIR`) |
+| Antigravity | Customizations › MCP: an HTTP server at `http://localhost:8787/mcp` with header `Authorization: Bearer <token>`, or a stdio server with command `npx tsx server/mcp.ts` and this folder as the working directory |
+| Other MCP clients | Same two options; the endpoint speaks Streamable HTTP, stateless |
+| Docker without Node on the host | Use HTTP (the container serves `/mcp`). `.mcp.docker.json` is an alternative that runs the stdio server inside the container via `docker compose exec` |
 
-The same tools are also served over HTTP by the app itself, so they start with `npm run dev`, Docker, or Kubernetes and remote agents can connect:
-
-| Transport | When | Setup |
-|---|---|---|
-| stdio (`npx tsx server/mcp.ts`) | The agent runs on the machine that has this repo and the data | `.mcp.json` (Claude Code picks it up), or `.mcp.docker.json` to run it inside the container via `docker compose exec` |
-| HTTP (`/mcp` on the API port) | The app runs somewhere else (Docker on another box, Kubernetes), or you want one endpoint for several agents | Settings › MCP access (owner only) shows the bearer token and a ready-made `claude mcp add --transport http …` command. Pin the token with `MCP_TOKEN` if you prefer; rotate it in Settings when a copy leaks. Whoever holds the token can read and write every project, so keep the endpoint behind HTTPS |
-
-Testing it: `npm test` covers the tool logic (`server/mcp.test.ts`) and the protocol itself (`server/mcp.protocol.test.ts` connects the SDK client to the server over an in-memory transport and runs the handshake, tool listing, schema validation, and calls). To try it by hand, `npx @modelcontextprotocol/inspector npx tsx server/mcp.ts` opens a web UI where you can call each tool; in Claude Code, start a new session in this folder and type `/mcp` to see `quack-aloud` listed.
+Testing it: `npm test` covers the tool logic (`server/mcp.test.ts`), the protocol over an in-memory transport (`server/mcp.protocol.test.ts`), and the HTTP endpoint with its token (`server/mcp.http.test.ts`, which starts the whole app on an ephemeral port). By hand: `npx @modelcontextprotocol/inspector` and point it at `http://localhost:8787/mcp` with the bearer header, or at the stdio command `npx tsx server/mcp.ts`; in Claude Code, start a new session and type `/mcp` to see `quack-aloud`.
 
 Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
 
