@@ -82,6 +82,8 @@ export const api = {
     fetch("/api/auth/setup", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ email, password }) }).then((r) => json<{ ok: true }>(r)),
   authLogin: (email: string, password: string) =>
     fetch("/api/auth/login", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ email, password }) }).then((r) => json<{ ok: true }>(r)),
+  mcpInfo: () => fetch("/api/settings/mcp").then((r) => json<{ token: string; source: "env" | "file"; url: string; claudeCode: string }>(r)),
+  rotateMcpToken: () => fetch("/api/settings/mcp/rotate", { method: "POST" }).then((r) => json<{ token: string }>(r)),
   listUsers: () => fetch("/api/auth/users").then((r) => json<UserRecord[]>(r)),
   addUser: (email: string, password: string, role: "owner" | "member" = "member") =>
     fetch("/api/auth/users", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ email, password, role }) }).then((r) => json<UserRecord>(r)),

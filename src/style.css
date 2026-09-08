@@ -53,6 +53,8 @@ button.link { font: inherit; font-size: inherit; color: #8a6d0b; background: non
 .modal details summary { cursor: pointer; font-weight: 600; }
 .modal details .field-row { margin-top: 10px; }
 .modal .pw-msg { margin-right: auto; color: var(--muted); }
+.token-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; }
+.token-row code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: #f0eee8; padding: 3px 8px; border-radius: 6px; word-break: break-all; }
 .user-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .user-list li { display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .user-list li small { color: var(--muted); }
