@@ -8,7 +8,7 @@ This document tells Claude Code how to act as the duck directly, without the API
 
 | Step | Do | Note |
 |---|---|---|
-| 1 | User runs `npm run dev` and opens http://localhost:5173 | No API key needed for this route |
+| 1 | User runs `npm run dev` and opens http://localhost:5173, or `docker compose up` and opens http://localhost:8787 | No API key needed for this route. Both serve the same `data/projects/` folder and the same `/api/projects` on port 8787 |
 | 2 | User types their thoughts in the Claude Code chat, plainly or as `/duck <thought>`, and says whether they want guidance | Always organise: cards, themes (`groups`), relations, refinements of existing cards. Only add question / insight / to-do cards when they ask for guidance |
 | 3 | Find the open project (`GET http://localhost:8787/api/projects`, or ask; the picker's tooltip shows the file path), read `data/projects/<id>.json`, then rewrite it with the new nodes and edges. If the user asks for a new project ("開新專案：<名稱>", "new project: <name>"), create `data/projects/p-YYYYMMDD-HHMMSS.json` first and file into it | Follow the rules below. Write the whole file as valid JSON in one go; the watcher retries on a half-written file but the UI flickers. To start a new project, create `data/projects/p-YYYYMMDD-HHMMSS.json` (the current local time) with `{"version":1,"name":"…","groups":[],"nodes":[],"edges":[],"messages":[]}` |
 | 4 | Reply briefly in chat, the same way the duck would | 2–3 sentences, at most one question |

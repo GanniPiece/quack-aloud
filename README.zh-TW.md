@@ -45,11 +45,11 @@ Quack Aloud 是一個帶畫布的「橡皮鴨除錯法」工具。你在聊天�
 |---|---|---|
 | 1 | `cp .env.example .env`，填入 `ANTHROPIC_API_KEY` | container 透過 `docker compose` 讀 `.env` |
 | 2 | `docker compose up --build` | 建 image 並啟動；開 http://localhost:8787 |
-| 3 | 資料在 host 的 `./data/docker/` | `projects/`、`trash/`、備份。要放別的路徑就掛到 `/data` |
+| 3 | 資料就是 dev server 用的同一個 `./data/` | `projects/`、`trash/`、備份。Claude Code 與 Antigravity 路線照常可用：它們改 host 上的 `data/projects/<id>.json`，container 裡的 watcher 收得到（在 Mac 的 Docker Desktop 驗證過；Linux 上檔案擁有者會是 uid 1000）。要放別的路徑就掛到 `/data` |
 
-不用 compose 的話：`docker build -t quack-aloud .`，然後 `docker run -p 8787:8787 -e ANTHROPIC_API_KEY=... -v $PWD/data/docker:/data quack-aloud`。
+不用 compose 的話：`docker build -t quack-aloud .`，然後 `docker run -p 8787:8787 -e ANTHROPIC_API_KEY=... -v $PWD/data:/data quack-aloud`。
 
-Kubernetes：`deploy/k8s/quack-aloud.yaml` 是最小的 Deployment + Service + PVC。狀態是檔案，所以只能單一 replica 配 ReadWriteOnce volume（`strategy: Recreate`），API key 從 Secret 來。對外開放前一定要放在有認證的 Ingress 後面，因為每則訊息都花 API 額度。驅動即時更新的 `fs.watch` 在某些網路檔案系統上不會觸發，請用 block volume，不要用 NFS。
+Kubernetes：`deploy/k8s/quack-aloud.yaml` 是最小的 Deployment + Service + PVC。狀態是檔案，所以只能單一 replica 配 ReadWriteOnce volume（`strategy: Recreate`），API key 從 Secret 來。對外開放前一定要放在有認證的 Ingress 後面，因為每則訊息都花 API 額度。驅動即時更新的 `fs.watch` 在某些網路檔案系統上不會觸發，請用 block volume，不要用 NFS。coding agent 的路線需要檔案和 agent 在同一台機器上，所以只適用本機 Docker，不適用叢集。
 
 ## 讓 coding agent 當鴨子（不用 API key）
 
