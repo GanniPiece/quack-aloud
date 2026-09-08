@@ -11,7 +11,9 @@ Not in this document:
 
 ## Why
 
-Most AI tools invert the order of thinking: you ask, the model answers, and you are left checking work you did not do. Quack Aloud keeps the order Terence Tao has argued for when working with AI: the human states the problem and holds the picture, top-down, while the model does the tedious, bottom-up part. Here that split is the whole interface. You do the thinking out loud; the duck only takes it apart into people, events, and claims, sorts it, draws the relations, and, if you ask, points at the gaps and pushes back. It never writes the idea for you. What you end up with is your own understanding, laid out so you can see where it is thin.
+Most AI tools invert the order of thinking: you ask, the model answers, and you are left checking work you did not do. Quack Aloud keeps the division of labour Terence Tao describes for working with AI in mathematics: the human writes, or at least carefully reviews, the statements and keeps the direction, top-down, while automation is trusted with the proofs and the routine, bottom-up work.[^tao] Here that split is the whole interface. You do the thinking out loud; the duck only takes it apart into people, events, and claims, sorts it, draws the relations, and, if you ask, points at the gaps and pushes back. It never writes the idea for you. What you end up with is your own understanding, laid out so you can see where it is thin.
+
+[^tao]: Terence Tao, ["Mathematical methods and human thought in the age of AI"](https://terrytao.wordpress.com/2026/03/29/mathematical-methods-and-human-thought-in-the-age-of-ai/) (blog, 29 March 2026), on humans generating or carefully reviewing the statements of theorems while proofs are delegated to automated tools, and on limiting AI to work you can still "red team" yourself; and his ICM 2026 public lecture ["Mathematics in the age of AI"](https://mathstodon.xyz/@tao/116977934921819775) (July 2026). His own running summary of these views is at [teorth.github.io/tao-web/ai-views.html](https://teorth.github.io/tao-web/ai-views.html). The "top-down" phrasing is ours.
 
 ## Demo
 
