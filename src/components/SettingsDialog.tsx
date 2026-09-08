@@ -20,6 +20,25 @@ export function SettingsDialog({ onClose, onSaved }: Props) {
   const [clearKey, setClearKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNext, setPwNext] = useState("");
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwMsg, setPwMsg] = useState<string | null>(null);
+
+  const changePassword = async () => {
+    setPwBusy(true);
+    setPwMsg(null);
+    try {
+      await api.changePassword(pwCurrent, pwNext);
+      setPwCurrent("");
+      setPwNext("");
+      setPwMsg("Password changed. Other sessions were signed out.");
+    } catch (err) {
+      setPwMsg((err as Error).message);
+    } finally {
+      setPwBusy(false);
+    }
+  };
 
   useEffect(() => {
     api
@@ -117,6 +136,17 @@ export function SettingsDialog({ onClose, onSaved }: Props) {
           </>
         )}
         {error && <div className="chat-error">{error}</div>}
+        <details className="field">
+          <summary>Change password</summary>
+          <div className="field-row">
+            <input type="password" autoComplete="current-password" placeholder="Current password" value={pwCurrent} onChange={(e) => setPwCurrent(e.target.value)} />
+            <input type="password" autoComplete="new-password" placeholder="New password (8+)" value={pwNext} onChange={(e) => setPwNext(e.target.value)} />
+          </div>
+          <div className="modal-actions">
+            {pwMsg && <small className="pw-msg">{pwMsg}</small>}
+            <button className="ghost" onClick={changePassword} disabled={pwBusy || pwNext.length < 8}>{pwBusy ? "Changing…" : "Change"}</button>
+          </div>
+        </details>
         <div className="modal-actions">
           <button className="ghost" onClick={onClose}>Cancel</button>
           <button className="primary" onClick={save} disabled={!info || saving}>

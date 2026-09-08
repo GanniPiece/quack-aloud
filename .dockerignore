@@ -12,3 +12,4 @@ docs
 *.log
 .DS_Store
 data/settings.json
+data/auth.json

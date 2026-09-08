@@ -66,12 +66,28 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 | Step | Claude Code | Antigravity | Note |
 |---|---|---|---|
 | 1 | Open this folder in Claude Code (the Code tab in the Claude app, or `claude` in a terminal) | Open this folder as the workspace | Claude Code loads `CLAUDE.md`; Antigravity loads `.agents/rules/quack-aloud.md`. Both hold the same rules and file format |
-| 2 | `npm run dev` and open http://localhost:5173 | same | The agent finds the open project through `http://localhost:8787/api/projects` |
+| 2 | `npm run dev` and open http://localhost:5173 | same | The agent finds the open canvas by looking at `data/projects/` (the most recently modified canvas file); it never needs the API, so sign-in does not get in its way |
 | 3 | Type the thought, plainly or as `/duck <thought>` | `/duck <thought>` in the agent panel | `/duck` makes the intent explicit; a plain message in Claude Code works too. The command list is read when a session starts, so after cloning or pulling, start a new session before `/duck` shows up |
 | 4 | Add "guide", "引導", or "質疑" to the message for questions and challenges | same | Without it the agent only organises |
 | 5 | Say "new project: <name>" / "開新專案：<名稱>" for a fresh project, or "new canvas: <name>" / "開新畫布：<名稱>" for another canvas in the open project | same | The agent creates the folder or file under `data/projects/` and files the rest of the message there. Switch to it in the pickers |
 
 Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
+
+## Sign-in
+
+The app protects itself with one shared password, because the API key behind it pays for every message.
+
+| Situation | What happens | Note |
+|---|---|---|
+| First visit, no password yet | A "Set a password" screen; 8 characters or more | Stored as a scrypt hash in `data/auth.json` (owner-only). Never commit or share that file |
+| Later visits | "Sign in" screen | The session is an HttpOnly cookie valid for 30 days; five wrong passwords lock that address for 30 seconds |
+| Containers, Kubernetes | Set `APP_PASSWORD` in the environment | A password set from the app takes precedence once one exists |
+| Change the password | Settings › Change password | Ends every other session |
+| Sign out | "Sign out" in the top bar | |
+| No sign-in wanted | `AUTH_DISABLED=1` | Only on a machine nobody else can reach |
+| Behind a reverse proxy | `TRUST_PROXY=1` | So cookies are marked Secure over HTTPS and rate limiting sees the real address |
+
+Coding agents (Claude Code, Antigravity) are not affected: they read and write the project files directly and never call the API.
 
 ## Configuration
 

@@ -1,6 +1,8 @@
 # Minimal single-replica deployment. State is files on a volume, so keep replicas at 1
 # and use a ReadWriteOnce volume. Create the secret first:
-#   kubectl create secret generic quack-aloud --from-literal=ANTHROPIC_API_KEY=sk-ant-...
+#   kubectl create secret generic quack-aloud --from-literal=ANTHROPIC_API_KEY=sk-ant-... --from-literal=APP_PASSWORD=...
+# APP_PASSWORD is the sign-in password (or leave it out and set one on first visit; it is
+# kept on the volume). Set TRUST_PROXY=1 when an Ingress terminates TLS in front of the pod.
 # Put the app behind an Ingress with authentication before exposing it: the API key
 # pays for every message anyone sends.
 apiVersion: v1
@@ -43,6 +45,8 @@ spec:
               value: claude-opus-5
             - name: CLAUDE_EFFORT
               value: medium
+            - name: TRUST_PROXY
+              value: "1"
           envFrom:
             - secretRef:
                 name: quack-aloud

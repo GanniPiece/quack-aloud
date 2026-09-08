@@ -2,6 +2,9 @@ import type { Graph } from "../shared/graph";
 
 async function json<T>(res: globalThis.Response): Promise<T> {
   const body = await res.json().catch(() => ({}));
+  if (res.status === 401 && (body as { authRequired?: boolean }).authRequired) {
+    window.dispatchEvent(new Event("qa:unauthorized"));
+  }
   if (!res.ok) throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
   return body as T;
 }
@@ -23,6 +26,13 @@ export interface HealthInfo {
   effort: string | null;
   keyConfigured: boolean;
   projectsDir: string;
+}
+
+export interface AuthStatus {
+  authRequired: boolean;
+  configured: boolean;
+  authenticated: boolean;
+  source: "file" | "env" | "none";
 }
 
 export interface SettingsInfo {
@@ -58,6 +68,15 @@ export interface CanvasRef {
 }
 
 export const api = {
+  authStatus: () => fetch("/api/auth/status").then((r) => json<AuthStatus>(r)),
+  authSetup: (password: string) =>
+    fetch("/api/auth/setup", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ password }) }).then((r) => json<{ ok: true }>(r)),
+  authLogin: (password: string) =>
+    fetch("/api/auth/login", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ password }) }).then((r) => json<{ ok: true }>(r)),
+  authLogout: () => fetch("/api/auth/logout", { method: "POST" }).then((r) => json<{ ok: true }>(r)),
+  changePassword: (current: string, password: string) =>
+    fetch("/api/auth/password", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ current, password }) }).then((r) => json<{ ok: true }>(r)),
+
   health: () => fetch("/api/health").then((r) => json<HealthInfo>(r)),
   getSettings: () => fetch("/api/settings").then((r) => json<SettingsInfo>(r)),
   putSettings: (patch: { provider?: string; apiKey?: string; model?: string; effort?: string }) =>
