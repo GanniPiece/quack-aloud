@@ -23,18 +23,22 @@ import {
 } from "./projects";
 import {
   authDisabled,
+  changePassword,
   clearSessionCookie,
-  hasPassword,
-  isAuthenticated,
+  createUser,
+  currentUser,
+  deleteUser,
+  hasUsers,
   issueSession,
+  listUsers,
   loginLocked,
-  passwordSource,
   recordLogin,
   requireAuth,
-  setPassword,
+  seedFromEnv,
   setSessionCookie,
+  validateEmail,
   validatePassword,
-  verifyPassword,
+  verifyLogin,
 } from "./auth";
 import { buildThinkInput } from "./prompt";
 import { PROVIDER_NAMES, RefusalError, describeProviderError, getProvider } from "./providers";
@@ -50,32 +54,36 @@ ensureMigrated();
 ensureOneProject();
 
 // ---------- auth ----------
-// A single shared password (set on first visit, or APP_PASSWORD) and a signed session cookie.
+// Accounts (email + password) and a signed session cookie. The first account, created on the
+// first visit or seeded from APP_EMAIL / APP_PASSWORD, is the owner and manages the others.
 // Every /api route below except these needs a session; static files are served regardless
-// because the login screen is part of the same page.
+// because the sign-in screen is part of the same page.
+
+if (seedFromEnv()) console.log(`[auth] created the owner account from APP_EMAIL`);
 
 app.get("/api/auth/status", (req, res) => {
-  res.json({ authRequired: !authDisabled(), configured: hasPassword(), authenticated: isAuthenticated(req), source: passwordSource() });
+  const user = currentUser(req);
+  res.json({ authRequired: !authDisabled(), configured: hasUsers(), user: user ? { email: user.email, role: user.role } : null });
 });
 
-/** First run: create the password. Refused once one exists (change it in Settings instead). */
+/** First run: create the owner account. Refused once any account exists. */
 app.post("/api/auth/setup", (req, res) => {
   if (authDisabled()) {
     res.status(400).json({ error: "Authentication is disabled (AUTH_DISABLED)." });
     return;
   }
-  if (hasPassword()) {
-    res.status(409).json({ error: "A password is already set. Sign in, then change it in Settings." });
+  if (hasUsers()) {
+    res.status(409).json({ error: "An account already exists. Sign in; the owner can add accounts in Settings." });
     return;
   }
-  const problem = validatePassword(req.body?.password);
+  const problem = validateEmail(req.body?.email) ?? validatePassword(req.body?.password);
   if (problem) {
     res.status(400).json({ error: problem });
     return;
   }
-  setPassword(req.body.password);
-  setSessionCookie(req, res, issueSession());
-  res.status(201).json({ ok: true });
+  const user = createUser(req.body.email, req.body.password, "owner");
+  setSessionCookie(req, res, issueSession(user.id));
+  res.status(201).json({ ok: true, user: { email: user.email, role: user.role } });
 });
 
 app.post("/api/auth/login", (req, res) => {
@@ -85,14 +93,16 @@ app.post("/api/auth/login", (req, res) => {
     res.status(429).json({ error: `Too many attempts. Try again in ${wait}s.` });
     return;
   }
-  const ok = typeof req.body?.password === "string" && verifyPassword(req.body.password);
-  recordLogin(ip, ok);
-  if (!ok) {
-    res.status(401).json({ error: "Wrong password." });
+  const email = typeof req.body?.email === "string" ? req.body.email : "";
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
+  const user = email && password ? verifyLogin(email, password) : null;
+  recordLogin(ip, user !== null);
+  if (!user) {
+    res.status(401).json({ error: "Wrong email or password." });
     return;
   }
-  setSessionCookie(req, res, issueSession());
-  res.json({ ok: true });
+  setSessionCookie(req, res, issueSession(user.id));
+  res.json({ ok: true, user: { email: user.email, role: user.role } });
 });
 
 app.post("/api/auth/logout", (req, res) => {
@@ -100,15 +110,14 @@ app.post("/api/auth/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-/** Change the password: needs a session and the current password. Ends every other session. */
+/** Change your own password: needs the current one. Ends your other sessions. */
 app.post("/api/auth/password", (req, res) => {
-  if (!isAuthenticated(req)) {
+  const user = currentUser(req);
+  if (!user) {
     res.status(401).json({ error: "Sign in to continue.", authRequired: true });
     return;
   }
-  if (passwordSource() === "env" && !req.body?.current) {
-    // still allow: a file password will take precedence over APP_PASSWORD from now on
-  } else if (!(typeof req.body?.current === "string" && verifyPassword(req.body.current))) {
+  if (!(typeof req.body?.current === "string" && verifyLogin(user.email, req.body.current))) {
     res.status(401).json({ error: "Current password is wrong." });
     return;
   }
@@ -117,8 +126,53 @@ app.post("/api/auth/password", (req, res) => {
     res.status(400).json({ error: problem });
     return;
   }
-  setPassword(req.body.password);
-  setSessionCookie(req, res, issueSession());
+  changePassword(user.id, req.body.password);
+  setSessionCookie(req, res, issueSession(user.id));
+  res.json({ ok: true });
+});
+
+// ----- account management (owner only) -----
+
+function requireOwner(req: Request, res: Response) {
+  const user = currentUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Sign in to continue.", authRequired: true });
+    return null;
+  }
+  if (user.role !== "owner") {
+    res.status(403).json({ error: "Only the owner can manage accounts." });
+    return null;
+  }
+  return user;
+}
+
+app.get("/api/auth/users", (req, res) => {
+  if (!requireOwner(req, res)) return;
+  res.json(listUsers());
+});
+
+app.post("/api/auth/users", (req, res) => {
+  if (!requireOwner(req, res)) return;
+  try {
+    const user = createUser(String(req.body?.email ?? ""), String(req.body?.password ?? ""), req.body?.role === "owner" ? "owner" : "member");
+    res.status(201).json(user);
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+  }
+});
+
+app.delete("/api/auth/users/:id", (req, res) => {
+  const me = requireOwner(req, res);
+  if (!me) return;
+  if (req.params.id === me.id) {
+    res.status(400).json({ error: "You cannot remove your own account." });
+    return;
+  }
+  const problem = deleteUser(req.params.id);
+  if (problem) {
+    res.status(400).json({ error: problem });
+    return;
+  }
   res.json({ ok: true });
 });
 

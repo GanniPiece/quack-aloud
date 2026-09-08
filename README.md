@@ -84,15 +84,16 @@ Both routes and the in-app chat write the same files, so they can be mixed. Avoi
 
 ## Sign-in
 
-The app protects itself with one shared password, because the API key behind it pays for every message.
+The app asks for an account (email + password), because the API key behind it pays for every message. Accounts control the door, not the data: everyone who can sign in shares the same projects.
 
 | Situation | What happens | Note |
 |---|---|---|
-| First visit, no password yet | A "Set a password" screen; 8 characters or more | Stored as a scrypt hash in `data/auth.json` (owner-only). Never commit or share that file |
-| Later visits | "Sign in" screen | The session is an HttpOnly cookie valid for 30 days; five wrong passwords lock that address for 30 seconds |
-| Containers, Kubernetes | Set `APP_PASSWORD` in the environment | A password set from the app takes precedence once one exists |
-| Change the password | Settings › Change password | Ends every other session |
-| Sign out | "Sign out" in the top bar | |
+| First visit, no accounts yet | "Create the owner account": email and a password of 8 characters or more | Stored as scrypt hashes in `data/users.json` (owner-only file). Never commit or share it |
+| Later visits | "Sign in" with email and password | The session is an HttpOnly cookie valid for 30 days; five wrong attempts lock that address for 30 seconds |
+| More people | Settings › Accounts (owner only): add an email and a starting password, or remove an account | The last owner cannot be removed |
+| Containers, Kubernetes | Set `APP_EMAIL` and `APP_PASSWORD` in the environment | Seeds the owner account on first start; ignored once any account exists |
+| Change your password | Settings › Change password | Ends your other sessions; other accounts are not affected |
+| Sign out | Your email · "Sign out" in the top bar | |
 | No sign-in wanted | `AUTH_DISABLED=1` | Only on a machine nobody else can reach |
 | Behind a reverse proxy | `TRUST_PROXY=1` | So cookies are marked Secure over HTTPS and rate limiting sees the real address |
 

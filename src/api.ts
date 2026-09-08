@@ -28,11 +28,20 @@ export interface HealthInfo {
   projectsDir: string;
 }
 
+export interface AuthUser {
+  email: string;
+  role: "owner" | "member";
+}
+
 export interface AuthStatus {
   authRequired: boolean;
   configured: boolean;
-  authenticated: boolean;
-  source: "file" | "env" | "none";
+  user: AuthUser | null;
+}
+
+export interface UserRecord extends AuthUser {
+  id: string;
+  createdAt: number;
 }
 
 export interface SettingsInfo {
@@ -69,10 +78,14 @@ export interface CanvasRef {
 
 export const api = {
   authStatus: () => fetch("/api/auth/status").then((r) => json<AuthStatus>(r)),
-  authSetup: (password: string) =>
-    fetch("/api/auth/setup", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ password }) }).then((r) => json<{ ok: true }>(r)),
-  authLogin: (password: string) =>
-    fetch("/api/auth/login", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ password }) }).then((r) => json<{ ok: true }>(r)),
+  authSetup: (email: string, password: string) =>
+    fetch("/api/auth/setup", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ email, password }) }).then((r) => json<{ ok: true }>(r)),
+  authLogin: (email: string, password: string) =>
+    fetch("/api/auth/login", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ email, password }) }).then((r) => json<{ ok: true }>(r)),
+  listUsers: () => fetch("/api/auth/users").then((r) => json<UserRecord[]>(r)),
+  addUser: (email: string, password: string, role: "owner" | "member" = "member") =>
+    fetch("/api/auth/users", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ email, password, role }) }).then((r) => json<UserRecord>(r)),
+  removeUser: (id: string) => fetch(`/api/auth/users/${encodeURIComponent(id)}`, { method: "DELETE" }).then((r) => json<{ ok: true }>(r)),
   authLogout: () => fetch("/api/auth/logout", { method: "POST" }).then((r) => json<{ ok: true }>(r)),
   changePassword: (current: string, password: string) =>
     fetch("/api/auth/password", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ current, password }) }).then((r) => json<{ ok: true }>(r)),

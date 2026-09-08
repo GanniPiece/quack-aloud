@@ -82,15 +82,16 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 
 ## 登入
 
-這個 app 用一組共用密碼保護自己，因為後面的 API key 每則訊息都要付費。
+這個 app 要求帳號登入（email + 密碼），因為後面的 API key 每則訊息都要付費。帳號只管門，不分資料：能登入的人共用同一批專案。
 
 | 情況 | 行為 | Note |
 |---|---|---|
-| 第一次開、還沒有密碼 | 出現「Set a password」畫面，至少 8 個字元 | 以 scrypt 雜湊存在 `data/auth.json`（只有擁有者可讀）。不要 commit 或分享這個檔 |
-| 之後 | 「Sign in」畫面 | session 是 HttpOnly cookie，30 天有效；密碼錯 5 次會鎖該來源 30 秒 |
-| Container、Kubernetes | 環境變數設 `APP_PASSWORD` | 一旦在 app 裡設過密碼，以 app 裡的為準 |
-| 改密碼 | Settings › Change password | 其他 session 全部登出 |
-| 登出 | 頂欄「Sign out」 | |
+| 第一次開、還沒有帳號 | 「Create the owner account」：email 加至少 8 個字元的密碼 | 以 scrypt 雜湊存在 `data/users.json`（只有擁有者可讀）。不要 commit 或分享這個檔 |
+| 之後 | 用 email 和密碼「Sign in」 | session 是 HttpOnly cookie，30 天有效；錯 5 次會鎖該來源 30 秒 |
+| 多人使用 | Settings › Accounts（只有 owner 看得到）：填 email 和初始密碼新增，或移除帳號 | 最後一個 owner 不能移除 |
+| Container、Kubernetes | 環境變數設 `APP_EMAIL` 和 `APP_PASSWORD` | 第一次啟動時建立 owner 帳號；已有任何帳號就忽略 |
+| 改自己的密碼 | Settings › Change password | 自己的其他 session 登出；不影響別人 |
+| 登出 | 頂欄「你的 email · Sign out」 | |
 | 不想要登入 | `AUTH_DISABLED=1` | 只適合別人碰不到的機器 |
 | 放在 reverse proxy 後面 | `TRUST_PROXY=1` | 讓 cookie 在 HTTPS 下標 Secure，速率限制也才看得到真實來源 |
 

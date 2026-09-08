@@ -1,17 +1,72 @@
 import { useEffect, useState } from "react";
-import { api, type SettingsInfo } from "../api";
+import { api, type AuthUser, type SettingsInfo, type UserRecord } from "../api";
 
 interface Props {
   onClose: () => void;
   /** Called after a successful save so the app can refresh its health pill */
   onSaved: () => void;
+  /** Who is signed in; the owner also sees the accounts section */
+  me: AuthUser | null;
+}
+
+function Accounts({ me }: { me: AuthUser }) {
+  const [users, setUsers] = useState<UserRecord[] | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const reload = () => api.listUsers().then(setUsers).catch((err) => setMsg((err as Error).message));
+  useEffect(() => {
+    void reload();
+  }, []);
+  const add = async () => {
+    setMsg(null);
+    try {
+      await api.addUser(email, password);
+      setEmail("");
+      setPassword("");
+      await reload();
+    } catch (err) {
+      setMsg((err as Error).message);
+    }
+  };
+  const remove = async (u: UserRecord) => {
+    setMsg(null);
+    try {
+      await api.removeUser(u.id);
+      await reload();
+    } catch (err) {
+      setMsg((err as Error).message);
+    }
+  };
+  return (
+    <details className="field">
+      <summary>Accounts</summary>
+      <ul className="user-list">
+        {users?.map((u) => (
+          <li key={u.id}>
+            <span>{u.email}</span>
+            <small>{u.role}</small>
+            {u.email !== me.email && <button className="link" onClick={() => remove(u)}>remove</button>}
+          </li>
+        ))}
+      </ul>
+      <div className="field-row">
+        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input type="password" autoComplete="new-password" placeholder="Password (8+)" value={password} onChange={(e) => setPassword(e.target.value)} />
+      </div>
+      <div className="modal-actions">
+        {msg && <small className="pw-msg">{msg}</small>}
+        <button className="ghost" onClick={add} disabled={!email.includes("@") || password.length < 8}>Add account</button>
+      </div>
+    </details>
+  );
 }
 
 /**
  * API key, provider, model, and effort, saved on the server (data/settings.json). The key is
  * write-only from here: the dialog only ever sees a masked hint of what is stored.
  */
-export function SettingsDialog({ onClose, onSaved }: Props) {
+export function SettingsDialog({ onClose, onSaved, me }: Props) {
   const [info, setInfo] = useState<SettingsInfo | null>(null);
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -147,6 +202,7 @@ export function SettingsDialog({ onClose, onSaved }: Props) {
             <button className="ghost" onClick={changePassword} disabled={pwBusy || pwNext.length < 8}>{pwBusy ? "Changing…" : "Change"}</button>
           </div>
         </details>
+        {me?.role === "owner" && <Accounts me={me} />}
         <div className="modal-actions">
           <button className="ghost" onClick={onClose}>Cancel</button>
           <button className="primary" onClick={save} disabled={!info || saving}>
