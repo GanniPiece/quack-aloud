@@ -78,6 +78,14 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 | Claude Code | 不用設定：repo 裡的 `.mcp.json` 已登記為 `quack-aloud`，Claude Code 詢問時核准即可。在別的目錄可以用 `claude mcp add quack-aloud -- npx tsx server/mcp.ts`（在這個資料夾執行，或設 `DATA_DIR`） |
 | Antigravity 與其他 MCP client | 新增一個 stdio server，指令 `npx tsx server/mcp.ts`，工作目錄設為這個資料夾 |
 
+MCP server 不是常駐服務：MCP client 在 agent 所在的機器上用 stdio 把它當子行程啟動，它直接操作專案檔。這個行程該在哪裡跑，看 app 怎麼跑：
+
+| app 的執行方式 | MCP 指令 | Note |
+|---|---|---|
+| `npm run dev` 或本機 Docker，而且這台機器有這個 repo | `npx tsx server/mcp.ts`（預設的 `.mcp.json`） | Docker 掛載了 `./data`，host 端的 MCP 改的是同一批檔，container 的 watcher 會更新瀏覽器 |
+| 只有 Docker、host 沒有 Node | `docker compose exec -T quack-aloud npx tsx server/mcp.ts`（`.mcp.docker.json`） | 在 container 裡跑；image 已含 `server/` 和 `tsx` |
+| Kubernetes | `kubectl exec -i deploy/quack-aloud -- npx tsx server/mcp.ts` | 需要對叢集的 kubectl 權限。正規做法是遠端傳輸（Streamable HTTP 加 token），還沒做 |
+
 測試：`npm test` 涵蓋工具邏輯（`server/mcp.test.ts`）和協定本身（`server/mcp.protocol.test.ts` 用 SDK 的 client 透過記憶體傳輸連上 server，跑 handshake、工具清單、schema 驗證、呼叫）。要手動試，`npx @modelcontextprotocol/inspector npx tsx server/mcp.ts` 會開一個網頁介面可以逐一呼叫工具；在 Claude Code 裡，於這個資料夾開新對話後打 `/mcp` 應該看到 `quack-aloud`。
 
 兩條路和 app 內的聊天寫的是同一批檔案，可以混用。避免在 agent 寫檔的同一刻在瀏覽器拖卡片；瀏覽器會拒絕過期的寫入並顯示「canvas changed elsewhere」。

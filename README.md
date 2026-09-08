@@ -80,6 +80,14 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 | Claude Code | Nothing: `.mcp.json` in this repo registers it as `quack-aloud`; approve the server when Claude Code asks. `claude mcp add quack-aloud -- npx tsx server/mcp.ts` does the same from anywhere (run in this folder, or set `DATA_DIR`) |
 | Antigravity, other MCP clients | Add a stdio server with command `npx tsx server/mcp.ts` and this folder as the working directory |
 
+The MCP server is not a service: the MCP client starts it as a child process over stdio on the machine where the agent runs, and it works on the project files. Where that process should run depends on how the app runs:
+
+| The app runs… | MCP command | Note |
+|---|---|---|
+| With `npm run dev`, or in local Docker, and this repo is on the machine | `npx tsx server/mcp.ts` (the default `.mcp.json`) | Docker mounts `./data`, so the host-side MCP edits the same files and the container's watcher updates the browser |
+| Only in Docker, no Node on the host | `docker compose exec -T quack-aloud npx tsx server/mcp.ts` (`.mcp.docker.json`) | Runs the server inside the container; the image already contains `server/` and `tsx` |
+| In Kubernetes | `kubectl exec -i deploy/quack-aloud -- npx tsx server/mcp.ts` | Needs kubectl access to the cluster. A remote transport (Streamable HTTP with a token) is the proper answer and not built yet |
+
 Testing it: `npm test` covers the tool logic (`server/mcp.test.ts`) and the protocol itself (`server/mcp.protocol.test.ts` connects the SDK client to the server over an in-memory transport and runs the handshake, tool listing, schema validation, and calls). To try it by hand, `npx @modelcontextprotocol/inspector npx tsx server/mcp.ts` opens a web UI where you can call each tool; in Claude Code, start a new session in this folder and type `/mcp` to see `quack-aloud` listed.
 
 Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
