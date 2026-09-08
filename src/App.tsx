@@ -372,7 +372,6 @@ export default function App() {
               key={refKey || "none"}
               graph={graph}
               freshSince={freshSince}
-              relayoutToken={freshSince}
               update={update}
               onReset={reset}
               onExport={exportGraph}
