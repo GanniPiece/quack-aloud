@@ -4,6 +4,8 @@ $ARGUMENTS
 
 If the thought contains "guide", "引導", or "質疑", guidance is on for this turn; otherwise organise only.
 
+If the `quack-aloud` MCP tools are available, use them instead of the file steps below: `list_projects` → `read_canvas` (the most recently updated canvas unless the user names one; "new project: …" / "new canvas: …" → `create_project` / `create_canvas`) → decompose per CLAUDE.md → `duck_turn` with the message, guide flag, and your decomposition → reply with the same text you passed as "reply". Then stop.
+
 1. Pick the project. If the thought asks for a new project ("new project", "新專案", "開新專案", "新的…專案") create the folder `data/projects/p-YYYYMMDD-HHMMSS/` (current local time) with `project.json` = `{"name":"<name>","createdAt":<ms epoch>}` and a first canvas `c-YYYYMMDD-HHMMSS.json` = `{"version":1,"name":"Main","groups":[],"nodes":[],"edges":[],"messages":[]}`. If it asks for a new canvas ("new canvas", "新畫布", "開新畫布"), add such a `c-….json` (with the requested name) to the open project and use it; tell the user to select it in the picker. Otherwise find the open one on disk (the API needs a sign-in): `ls -t data/projects/*/*.json | grep -v project.json | head -1` gives the most recently modified canvas; `project.json` in the same folder has the project name. Edit that `data/projects/<pid>/<cid>.json`. If `data/projects/` does not exist, tell the user to run `npm run dev` once and stop. If several projects exist and it is unclear which one, ask.
    If the message is only a project title with no thought to file, create the project, write one user message and one reply into `messages`, and stop.
 2. Read that canvas file fully; note existing groups, node ids, and edges so you refine and connect instead of duplicating.

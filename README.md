@@ -71,6 +71,15 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 | 4 | Add "guide", "引導", or "質疑" to the message for questions and challenges | same | Without it the agent only organises |
 | 5 | Say "new project: <name>" / "開新專案：<名稱>" for a fresh project, or "new canvas: <name>" / "開新畫布：<名稱>" for another canvas in the open project | same | The agent creates the folder or file under `data/projects/` and files the rest of the message there. Switch to it in the pickers |
 
+### MCP server (recommended for agents)
+
+`server/mcp.ts` is an MCP server over stdio. It gives an agent five tools: `list_projects`, `read_canvas`, `create_project`, `create_canvas`, and `duck_turn`. The agent reads the canvas, decides the decomposition, and hands it to `duck_turn`, which applies the same merge logic as the in-app chat (placement, id collisions, hierarchy, chat history, organise-only filtering). No coordinates or JSON by hand, no API key, no sign-in: it works on the project files directly and the browser updates live.
+
+| Client | Setup |
+|---|---|
+| Claude Code | Nothing: `.mcp.json` in this repo registers it as `quack-aloud`; approve the server when Claude Code asks. `claude mcp add quack-aloud -- npx tsx server/mcp.ts` does the same from anywhere (run in this folder, or set `DATA_DIR`) |
+| Antigravity, other MCP clients | Add a stdio server with command `npx tsx server/mcp.ts` and this folder as the working directory |
+
 Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
 
 ## Sign-in
@@ -163,6 +172,7 @@ A project is a folder of canvases: a novel might have "Concept", "Characters", a
 | `npm run build` | Typecheck, then build the UI into `dist/` |
 | `npm start` | Serve API and the built UI from one process on `API_PORT` (run `npm run build` first) |
 | `npm run docker:build` / `npm run docker:run` | Build the image / build and start with compose |
+| `npm run mcp` | Start the MCP server on stdio (for MCP clients; not something to run by hand) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Unit tests (Vitest) for the graph merge logic, prompt assembly, and the four layouts. `npm run test:watch` re-runs on change |
 

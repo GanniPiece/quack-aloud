@@ -3,8 +3,8 @@ import type { ThinkInput } from "./providers/types";
 
 const HISTORY_LIMIT = 20;
 
-/** Shared by both modes: how to organise what the user said. */
-const ORGANISE_RULES = `Each user message is prefixed with a <canvas> tag containing the current canvas as JSON (groups, nodes, edges). It is context only; never repeat it in your reply.
+/** Shared by both modes (and by the MCP server's instructions): how to organise what the user said. */
+export const ORGANISE_RULES = `Each user message is prefixed with a <canvas> tag containing the current canvas as JSON (groups, nodes, edges). It is context only; never repeat it in your reply.
 
 ## Decompose, do not transcribe
 The canvas is a graph, not a list of sentences. Break every sentence into its smallest meaningful parts and let the edges carry the verbs. A reader should be able to see who is involved, what happened, and who believes what, without reading the original text.

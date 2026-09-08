@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "quack-aloud": {
+      "command": "npx",
+      "args": ["tsx", "server/mcp.ts"]
+    }
+  }
+}

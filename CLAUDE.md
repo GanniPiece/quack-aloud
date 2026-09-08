@@ -6,6 +6,8 @@ This document tells Claude Code how to act as the duck directly, without the API
 
 ## The Claude Code route
 
+Prefer the MCP tools when they are available (this repo ships `.mcp.json`, so Claude Code loads the `quack-aloud` server automatically; approve it when asked): `list_projects` → `read_canvas` → `duck_turn`. `duck_turn` takes the user's message plus your decomposition (groups, updates, nodes, edges, remove_edges, layout, root, reply) and does placement, id collisions, hierarchy, and chat history exactly like the in-app chat, so you never write coordinates or JSON by hand. `create_project` / `create_canvas` cover "new project: …" and "new canvas: …". The steps below are the fallback when the tools are not loaded.
+
 | Step | Do | Note |
 |---|---|---|
 | 1 | User runs `npm run dev` and opens http://localhost:5173, or `docker compose up` and opens http://localhost:8787 | No API key needed for this route. Both serve the same `data/projects/` folder and the same `/api/projects` on port 8787 |

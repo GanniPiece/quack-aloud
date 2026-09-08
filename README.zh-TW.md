@@ -69,6 +69,15 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 | 4 | 訊息裡加「guide」「引導」或「質疑」會得到追問與質疑 | 同左 | 不加就只整理 |
 | 5 | 說「開新專案：<名稱>」開新專案，或「開新畫布：<名稱>」在目前專案下加一個 canvas | 同左 | agent 會在 `data/projects/` 建資料夾或檔案並把訊息其餘部分歸進去。到選單切換過去 |
 
+### MCP server（給 agent 用，建議走這條）
+
+`server/mcp.ts` 是一個 stdio 的 MCP server，提供五個工具：`list_projects`、`read_canvas`、`create_project`、`create_canvas`、`duck_turn`。agent 讀畫布、決定怎麼拆，再把拆解結果交給 `duck_turn`，由它套用和 app 內聊天完全相同的合併邏輯（擺位、id 撞名、階層、對話紀錄、organise 模式過濾）。不用手寫座標或 JSON、不用 API key、不用登入：它直接讀寫專案檔，畫布即時更新。
+
+| Client | 設定 |
+|---|---|
+| Claude Code | 不用設定：repo 裡的 `.mcp.json` 已登記為 `quack-aloud`，Claude Code 詢問時核准即可。在別的目錄可以用 `claude mcp add quack-aloud -- npx tsx server/mcp.ts`（在這個資料夾執行，或設 `DATA_DIR`） |
+| Antigravity 與其他 MCP client | 新增一個 stdio server，指令 `npx tsx server/mcp.ts`，工作目錄設為這個資料夾 |
+
 兩條路和 app 內的聊天寫的是同一批檔案，可以混用。避免在 agent 寫檔的同一刻在瀏覽器拖卡片；瀏覽器會拒絕過期的寫入並顯示「canvas changed elsewhere」。
 
 ## 登入
@@ -161,6 +170,7 @@ Provider、API key、model、effort 在右上角 **Settings** 設定（聊天欄
 | `npm run build` | 先 typecheck，再把 UI build 到 `dist/` |
 | `npm start` | 用一個 process 在 `API_PORT` 同時服務 API 和 build 好的 UI（先跑 `npm run build`） |
 | `npm run docker:build` / `npm run docker:run` | 建 image / 用 compose 建並啟動 |
+| `npm run mcp` | 在 stdio 上啟動 MCP server（給 MCP client 用，不是手動跑的） |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Vitest 單元測試：graph 合併邏輯、prompt 組裝、四種版面。`npm run test:watch` 會在檔案變動時重跑 |
 
