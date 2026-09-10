@@ -1,5 +1,6 @@
 import { resolveConfig, type ResolvedConfig } from "../settings";
 import { ClaudeProvider } from "./claude";
+import { OpenAIProvider } from "./openai";
 import type { ThinkProvider } from "./types";
 
 /**
@@ -11,7 +12,7 @@ import type { ThinkProvider } from "./types";
  */
 const REGISTRY: Record<string, (cfg: ResolvedConfig) => ThinkProvider> = {
   claude: (cfg) => new ClaudeProvider({ apiKey: cfg.apiKey, model: cfg.model, effort: cfg.effort }),
-  // openai: (cfg) => new OpenAIProvider({ ... }),
+  openai: (cfg) => new OpenAIProvider({ apiKey: cfg.apiKey, model: cfg.model, effort: cfg.effort }),
   // gemini: (cfg) => new GeminiProvider({ ... }),
 };
 
@@ -20,8 +21,8 @@ export const PROVIDER_NAMES = Object.keys(REGISTRY);
 let instance: { key: string; provider: ThinkProvider } | undefined;
 
 /** The provider for the current settings; rebuilt whenever the settings change. */
-export function getProvider(): ThinkProvider {
-  const cfg = resolveConfig();
+export function getProvider(provider?: string): ThinkProvider {
+  const cfg = resolveConfig(provider);
   const factory = REGISTRY[cfg.provider];
   if (!factory) {
     throw new Error(`Unknown provider "${cfg.provider}". Available: ${PROVIDER_NAMES.join(", ")}`);
@@ -33,7 +34,7 @@ export function getProvider(): ThinkProvider {
 
 /** Map each SDK's errors to an HTTP response; null means unrecognised, fall through to 500. */
 export function describeProviderError(err: unknown): { status: number; message: string } | null {
-  return ClaudeProvider.describeError(err);
+  return ClaudeProvider.describeError(err) ?? OpenAIProvider.describeError(err);
 }
 
 export { RefusalError, ThinkOutputSchema, type ThinkInput, type ThinkOutput, type ThinkProvider } from "./types";

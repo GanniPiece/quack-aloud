@@ -295,7 +295,7 @@ export default function App() {
 
   const disabledReason =
     health && !health.keyConfigured
-      ? `No API key for provider "${health.provider}". Add one in Settings (top right). Until then you can still edit the canvas by hand or let Claude Code edit the project file.`
+      ? `No API key for provider "${health.provider}". The owner can add one in Settings (top right). You can still edit the canvas by hand or use Claude Code, Codex, or Antigravity through MCP.`
       : null;
 
   return (

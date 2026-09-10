@@ -42,7 +42,8 @@ import {
 } from "./auth";
 import { buildThinkInput } from "./prompt";
 import { PROVIDER_NAMES, RefusalError, describeProviderError, getProvider } from "./providers";
-import { EFFORTS, maskKey, resolveConfig, updateSettings, type Effort } from "./settings";
+import { maskKey, resolveConfig, updateSettings, type Effort } from "./settings";
+import { PROVIDER_DEFAULTS, providerEfforts } from "./providerConfig";
 
 import { mcpToken, mcpTokenSource, mountMcp, rotateMcpToken } from "./mcpHttp";
 
@@ -265,19 +266,25 @@ app.get("/api/health", (_req, res) => {
 // ---------- settings (API key, provider, model, effort) ----------
 // The key itself never leaves the server: clients get a masked hint and a "configured" flag.
 
-function settingsView() {
-  const cfg = resolveConfig();
-  const p = getProvider();
+function providerSettingsView(provider: string) {
+  const cfg = resolveConfig(provider);
+  const p = getProvider(provider);
   return {
-    provider: cfg.provider,
-    providers: PROVIDER_NAMES,
     model: p.model,
     effort: p.effort ?? null,
-    efforts: EFFORTS,
+    efforts: providerEfforts(provider),
+    defaultModel: PROVIDER_DEFAULTS[provider]?.model ?? "",
+    keyPlaceholder: PROVIDER_DEFAULTS[provider]?.keyPlaceholder ?? "API key",
     keyConfigured: Boolean(cfg.apiKey),
     keyMasked: maskKey(cfg.apiKey),
     keySource: cfg.keySource,
   };
+}
+
+function settingsView() {
+  const provider = resolveConfig().provider;
+  const configurations = Object.fromEntries(PROVIDER_NAMES.map((name) => [name, providerSettingsView(name)]));
+  return { provider, providers: PROVIDER_NAMES, ...configurations[provider], configurations };
 }
 
 app.get("/api/settings", (_req, res) => {
@@ -289,11 +296,14 @@ app.get("/api/settings/mcp", (req, res) => {
   if (!requireOwner(req, res)) return;
   const token = mcpToken();
   const origin = `${req.protocol}://${req.get("host")}`;
+  const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
   res.json({
     token,
     source: mcpTokenSource(),
     url: `${origin}/mcp`,
-    claudeCode: `claude mcp add --transport http quack-aloud ${origin}/mcp --header "Authorization: Bearer ${token}"`,
+    claudeCode: `claude mcp add --transport http quack-aloud ${quote(`${origin}/mcp`)} --header ${quote(`Authorization: Bearer ${token}`)}`,
+    codex: `codex mcp add quack-aloud --url ${quote(`${origin}/mcp`)} --bearer-token-env-var QUACK_ALOUD_MCP_TOKEN`,
+    codexConfig: `[mcp_servers.quack-aloud]\nurl = ${JSON.stringify(`${origin}/mcp`)}\nbearer_token_env_var = "QUACK_ALOUD_MCP_TOKEN"\n`,
   });
 });
 
@@ -307,6 +317,7 @@ app.post("/api/settings/mcp/rotate", (req, res) => {
 });
 
 app.put("/api/settings", (req, res) => {
+  if (!requireOwner(req, res)) return;
   const body = (req.body ?? {}) as { provider?: unknown; apiKey?: unknown; model?: unknown; effort?: unknown };
   const patch: Parameters<typeof updateSettings>[0] = {};
   if (typeof body.provider === "string") {
@@ -319,8 +330,9 @@ app.put("/api/settings", (req, res) => {
   if (typeof body.apiKey === "string") patch.apiKey = body.apiKey;
   if (typeof body.model === "string") patch.model = body.model;
   if (typeof body.effort === "string") {
-    if (!EFFORTS.includes(body.effort as Effort)) {
-      res.status(400).json({ error: `Unknown effort "${body.effort}"` });
+    const provider = patch.provider ?? resolveConfig().provider;
+    if (!providerEfforts(provider).includes(body.effort as Effort)) {
+      res.status(400).json({ error: `Unsupported effort "${body.effort}" for ${provider}` });
       return;
     }
     patch.effort = body.effort as Effort;

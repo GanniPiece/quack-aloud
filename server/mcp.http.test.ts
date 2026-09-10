@@ -33,7 +33,12 @@ async function connect(token: string | null) {
   const transport = new StreamableHTTPClientTransport(new URL(`${base}/mcp`), {
     requestInit: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
   });
-  await client.connect(transport);
+  try {
+    await client.connect(transport);
+  } catch (error) {
+    await transport.close();
+    throw error;
+  }
   return client;
 }
 
@@ -69,6 +74,7 @@ describe("MCP over HTTP", () => {
     const api = await fetch(`${base}/api/projects`);
     expect(api.status).toBe(401);
     const mcp = await fetch(`${base}/mcp`, { method: "GET", headers: { Authorization: `Bearer ${mcpToken()}`, Accept: "text/event-stream" } });
+    await mcp.body?.cancel();
     expect(mcp.status).not.toBe(401);
   });
 });
