@@ -56,7 +56,11 @@ function McpAccess() {
             <button className="link" onClick={() => copy(info.codexConfig, "Codex HTTP config")}>copy HTTP config</button>
             <button className="link" onClick={() => copy(info.codex, "Codex command")}>copy the add command</button>
           </div>
-          <small>Codex in this repo uses local MCP by default. For HTTP, replace its .codex/config.toml MCP table with the copied HTTP config. For other workspaces, use the add command. Set QUACK_ALOUD_MCP_TOKEN to the token above in Codex's launch environment, then restart Codex. Antigravity accepts the endpoint and an Authorization: Bearer header.</small>
+          <small>Codex in this repo uses local MCP by default. For HTTP, replace its .codex/config.toml MCP table with the copied HTTP config. For other workspaces, use the add command. Set QUACK_ALOUD_MCP_TOKEN to the token above in Codex's launch environment, then restart Codex.</small>
+          <div className="token-row">
+            <small>Antigravity:</small>
+            <button className="link" onClick={() => copy(info.antigravity, "Antigravity command")}>copy the add command</button>
+          </div>
           <div className="modal-actions">
             {msg && <small className="pw-msg">{msg}</small>}
             <button className="ghost" onClick={rotate} disabled={info.source === "env"} title={info.source === "env" ? "Set by MCP_TOKEN in the environment" : "Issue a new token"}>Rotate token</button>

@@ -69,7 +69,7 @@ Claude Code、Codex 和 Google Antigravity 都可透過 MCP 歸檔想法，使�
 |---|---|---|---|
 | 專案指引 | `CLAUDE.md` | `AGENTS.md` | `.agents/rules/quack-aloud.md` |
 | 明確呼叫 | `/duck <想法>` | `$duck <想法>` | `/duck <想法>` |
-| 流程檔 | `.claude/commands/duck.md` | `.agents/skills/duck/SKILL.md` | `.agents/workflows/duck.md` |
+| 指令／skill 檔 | `.claude/commands/duck.md` | `.agents/skills/duck/SKILL.md` | `.agents/skills/duck/SKILL.md` |
 | repo 內的本機 MCP 設定 | `.mcp.json` | `.codex/config.toml` | 在 MCP 設定加入下方 entry |
 
 ### MCP server（給 agent 用，建議走這條）
@@ -115,7 +115,7 @@ stdio 子行程由 agent 啟動，不用在另一個終端機手動執行 `npm r
 
 ##### Antigravity — 本機
 
-1. 將這個 repo 開為 workspace。在 MCP 設定開啟自訂 server 設定。IDE 路徑為 agent 面板 **… → MCP Servers → Manage MCP Servers → View raw config**；其他介面可在 Customizations 找 MCP。
+1. 將這個 repo 開為 workspace，或從根目錄執行 `agy`。在 MCP 設定開啟自訂 server 設定。IDE 路徑為 agent 面板 **… → MCP Servers → Manage MCP Servers → View raw config**；其他介面可在 Customizations 找 MCP。
 2. 在 client 開啟的設定檔，把下列 entry 合併進 `mcpServers`，並換成實際 checkout 路徑：
 
    ```json
@@ -130,9 +130,17 @@ stdio 子行程由 agent 啟動，不用在另一個終端機手動執行 `npm r
    }
    ```
 
-3. 重新載入 MCP 設定，確認 server 的五個工具可用。若 workspace 規則／流程尚未載入，開新 agent 對話，再輸入 `/duck 首頁很慢，我懷疑是資料庫。請引導我。`
+3. 重新載入 MCP 設定，確認 server 的五個工具可用。若 workspace 規則／skill 尚未載入，開新 agent 對話，再輸入 `/duck 首頁很慢，我懷疑是資料庫。請引導我。`
 
-repo 提供 `.agents/rules/quack-aloud.md` 和 `.agents/workflows/duck.md`，但沒有預先登記 Antigravity MCP entry。修改設定時保留其他 server。參考 [Antigravity MCP 設定](https://antigravity.google/docs/mcp/)。
+repo 提供 `.agents/rules/quack-aloud.md` 和 `.agents/skills/duck/SKILL.md`，但沒有預先登記 Antigravity MCP entry。修改設定時保留其他 server。參考 [Antigravity MCP 設定](https://antigravity.google/docs/mcp/)。
+
+也可以從 repo 根目錄用 Antigravity CLI 登記本機 stdio：
+
+```sh
+agy mcp add --env "DATA_DIR=$PWD/data" quack-aloud npx -y tsx "$PWD/server/mcp.ts"
+```
+
+若 app 使用其他 `DATA_DIR`，請改成相同路徑。指令會儲存絕對路徑，讓 server 能從其他目錄啟動。用 `agy mcp list` 檢查登記結果，並以 `/mcp` 檢查實際連線。
 
 每個 client 都預設關閉引導；加「guide」「引導」「質疑」才開啟，瀏覽器開關不會設定外部 agent 的模式。說「new project: <name>」／「開新專案：<名稱>」或「new canvas: <name>」／「開新畫布：<名稱>」可建立項目，之後到瀏覽器選單切換。自然語言要求歸檔也可使用同一流程；解釋或修改 app 的要求則屬於開發工作。
 
@@ -195,7 +203,15 @@ codex mcp add quack-aloud --url https://your-quack-host/mcp --bearer-token-env-v
 
 ##### Antigravity — HTTP
 
-在 client 開啟的 MCP 設定，以以下內容取代本機 `quack-aloud` entry。儲存 token 時使用**個人／全域設定**，並保留其他 server：
+使用 **Settings → MCP access → Antigravity → copy the add command**，或替換下方占位文字：
+
+```sh
+agy mcp add --header "Authorization: Bearer <MCP_TOKEN>" quack-aloud https://your-quack-host/mcp
+```
+
+flag 放在 server 名稱前面；CLI 會辨識 HTTP URL。共用的個人設定檔是 `~/.gemini/config/mcp_config.json`，IDE 的 MCP 設定也能開啟它。若已登記本機 `quack-aloud`，請更新同一個 entry 為 HTTP。參考 [Antigravity MCP 設定](https://antigravity.google/docs/cli/mcp/)。
+
+也可以手動編輯 client 開啟的 MCP 設定，以以下內容取代本機 `quack-aloud` entry。儲存 token 時使用**個人／全域設定**，並保留其他 server：
 
 ```json
 {
@@ -209,6 +225,16 @@ codex mcp add quack-aloud --url https://your-quack-host/mcp --bearer-token-env-v
 ```
 
 將 `<MCP_TOKEN>` 換成目標安裝的 token，移除該 entry 的 stdio `command`、`args`、`cwd`，重新載入並確認工具。移除或更新有衝突的 workspace entry。Antigravity 的遠端 server 使用 `serverUrl`；此範例儲存真實 token，請將設定檔保密。[Antigravity MCP 參考](https://antigravity.google/docs/mcp/)。
+
+##### Gemini CLI — HTTP
+
+其他 MCP client 也能使用同一個端點。Gemini CLI 可替換占位文字後，登記到使用者設定：
+
+```sh
+gemini mcp add -s user -t http -H "Authorization: Bearer <MCP_TOKEN>" quack-aloud https://your-quack-host/mcp
+```
+
+用 `/mcp` 檢查連線，再呼叫 `list_projects` 和 `read_canvas`。歸檔想法時參考 `docs/duck-guide.md`。參考 [Gemini CLI MCP 設定](https://geminicli.com/docs/tools/mcp-server/)。
 
 ##### Docker stdio — 三個 client 共用
 
@@ -244,7 +270,7 @@ Kubernetes 或其他遠端 host 使用 HTTP，不用本機 Docker 指令。host 
 | 項目 | 用途 |
 |---|---|
 | `CLAUDE.md`、`AGENTS.md`、`.agents/rules/` | 各 agent 的專案指引 |
-| `.claude/commands/`、`.agents/skills/`、`.agents/workflows/` | 分別是 Claude 指令、Codex skill 與 Antigravity 流程 |
+| `.claude/commands/`、`.agents/skills/` | Claude 指令，以及 Codex／Antigravity 共用的 duck skill |
 | `docs/duck-guide.md` | 共用整理規則與本機改檔備援 |
 | `docs/development.md` | 修改 app 的共用指引 |
 | `server/prompt.ts` | 傳給瀏覽器 provider、也由 MCP 提供的執行時指引 |
@@ -253,7 +279,7 @@ Kubernetes 或其他遠端 host 使用 HTTP，不用本機 Docker 指令。host 
 | Claude Code／Codex／Antigravity 登入 | 外部 agent 的認證，與瀏覽器設定獨立 |
 | MCP bearer token | 授權 HTTP 工具讀寫該安裝的所有專案 |
 
-兩個瀏覽器 provider 都不會自動讀取 AGENTS.md 或 CLAUDE.md。Codex 也不會自動把 Antigravity 的 `.agents/rules/`、`.agents/workflows/` 當成自己的規則或 skill。每個 client／目標安裝設定一次 MCP 後即可重複使用；修改設定或憑證後重新連線。登記 MCP server 和載入 duck 指令／skill 是兩個步驟。
+兩個瀏覽器 provider 都不會自動讀取 AGENTS.md 或 CLAUDE.md。Codex 與 Antigravity 共用 `.agents/skills/duck/SKILL.md`；專案指引則分別放在 `AGENTS.md` 與 `.agents/rules/quack-aloud.md`。每個 client／目標安裝設定一次 MCP 後即可重複使用；修改設定或憑證後重新連線。登記 MCP server 和載入 duck 指令／skill 是兩個步驟。
 
 #### 疑難排解與測試
 
@@ -261,8 +287,8 @@ Kubernetes 或其他遠端 host 使用 HTTP，不用本機 Docker 指令。host 
 |---|---|
 | Claude 找不到 `/duck` | 開啟此 repo 並開新對話，讓 `.claude/commands/duck.md` 載入 |
 | Codex 找不到 skill | 使用 `$duck` 或 `/skills`，確認 `.agents/skills/duck/SKILL.md` 存在；若尚未重新發現 skill，重啟 |
-| Antigravity 找不到 `/duck` | 將此 repo 開為 workspace，確認 `.agents/workflows/duck.md`；重新載入／開新對話 |
-| MCP 不見或斷線 | Claude：`/mcp` 和 `claude mcp get quack-aloud`。Codex：`/mcp` 和 `codex mcp get quack-aloud --json`。Antigravity：MCP manager 與連線紀錄。確認信任／核准、執行檔路徑及依賴 |
+| Antigravity 找不到 `/duck` | 將此 repo 開為 workspace，確認 `.agents/skills/duck/SKILL.md`；重新載入／開新對話 |
+| MCP 不見或斷線 | Claude：`/mcp` 和 `claude mcp get quack-aloud`。Codex：`/mcp` 和 `codex mcp get quack-aloud --json`。Antigravity：`agy mcp list`、`/mcp` 與連線紀錄。確認信任／核准、執行檔路徑及依賴 |
 | 傳輸／端點錯誤 | 檢查實際生效的 server entry 與 scope 衝突，只選定目標安裝 |
 | HTTP 401 | 確認目標安裝的 token、啟動環境或 header；輪替後重新連線，不要使用網站密碼或 provider API key |
 | Docker stdio 失敗 | 確認 Compose 已執行、Docker 可用、專案路徑正確，且有加 `-T` |
@@ -395,7 +421,7 @@ prompt 本身在 `server/prompt.ts`，所有 provider 共用。
 | 專案或 canvas 從選單消失 | 資料夾或檔案被刪、名稱含小寫字母數字連字號以外的字元，或專案資料夾少了 `project.json` | 用合法名稱放回 `data/projects/<pid>/` |
 | Codex 找不到 duck skill | skill／設定尚未載入，或用了 `/duck` | 用 `$duck` 或 CLI／IDE 的 `/skills`；首次設定後重啟。見 [Agent 設定](#agent-setup) |
 | Claude Code 說「Unknown command: /duck」 | 對話開始時 `.claude/commands/duck.md` 還不存在；指令在對話開始時讀取 | 開新對話，或不加 `/duck` 直接打想法（CLAUDE.md 已經教 Claude Code 怎麼歸檔） |
-| Antigravity 的 `/duck` 沒反應 | 沒吃到 `.agents/workflows/duck.md` | 確認這個資料夾是 workspace 根目錄；舊的 `.agent/` 名稱也接受 |
+| Antigravity 的 `/duck` 沒反應 | 沒吃到 `.agents/skills/duck/SKILL.md` | 確認這個資料夾是 workspace 根目錄（`agy` 的話是你執行它的資料夾）；舊的 `.agent/` 名稱也接受。`agy -p /skills --add-dir .` 會列出它找到的 skill（不帶 `--add-dir` 時 print mode 會在掃完 workspace 前就回答） |
 
 ## License
 

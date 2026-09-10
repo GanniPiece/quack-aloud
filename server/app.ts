@@ -302,6 +302,8 @@ app.get("/api/settings/mcp", (req, res) => {
     source: mcpTokenSource(),
     url: `${origin}/mcp`,
     claudeCode: `claude mcp add --transport http quack-aloud ${quote(`${origin}/mcp`)} --header ${quote(`Authorization: Bearer ${token}`)}`,
+    // agy requires flags before the server name and detects HTTP URLs itself.
+    antigravity: `agy mcp add --header ${quote(`Authorization: Bearer ${token}`)} quack-aloud ${quote(`${origin}/mcp`)}`,
     codex: `codex mcp add quack-aloud --url ${quote(`${origin}/mcp`)} --bearer-token-env-var QUACK_ALOUD_MCP_TOKEN`,
     codexConfig: `[mcp_servers.quack-aloud]\nurl = ${JSON.stringify(`${origin}/mcp`)}\nbearer_token_env_var = "QUACK_ALOUD_MCP_TOKEN"\n`,
   });

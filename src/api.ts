@@ -66,6 +66,7 @@ export interface McpInfo {
   source: "env" | "file";
   url: string;
   claudeCode: string;
+  antigravity: string;
   codex: string;
   codexConfig: string;
 }

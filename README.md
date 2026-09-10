@@ -71,7 +71,7 @@ Claude Code, Codex, and Google Antigravity can file thoughts through MCP using t
 |---|---|---|---|
 | Project instructions | `CLAUDE.md` | `AGENTS.md` | `.agents/rules/quack-aloud.md` |
 | Explicit duck invocation | `/duck <thought>` | `$duck <thought>` | `/duck <thought>` |
-| Workflow file | `.claude/commands/duck.md` | `.agents/skills/duck/SKILL.md` | `.agents/workflows/duck.md` |
+| Command / skill file | `.claude/commands/duck.md` | `.agents/skills/duck/SKILL.md` | `.agents/skills/duck/SKILL.md` |
 | Checked-in local MCP config | `.mcp.json` | `.codex/config.toml` | Add the entry below through the MCP settings |
 
 ### MCP server (recommended for agents)
@@ -116,7 +116,7 @@ The agent starts the stdio child process; do not run `npm run mcp` in another te
 
 ##### Antigravity — local
 
-1. Open this repository as the workspace. In MCP settings, open the custom server configuration. In the IDE: agent panel **… → MCP Servers → Manage MCP Servers → View raw config**; other surfaces expose MCP under Customizations.
+1. Open this repository as the workspace, or run `agy` from its root. In MCP settings, open the custom server configuration. In the IDE: agent panel **… → MCP Servers → Manage MCP Servers → View raw config**; other surfaces expose MCP under Customizations.
 2. Merge this entry into `mcpServers` in the configuration opened by the client; replace the checkout path:
 
    ```json
@@ -131,9 +131,17 @@ The agent starts the stdio child process; do not run `npm run mcp` in another te
    }
    ```
 
-3. Reload the MCP configuration and check that the server's five tools are available. Start a fresh agent conversation if the workspace rules/workflow have not loaded, then send `/duck The homepage is slow; I suspect the database. Guide me.`
+3. Reload the MCP configuration and check that the server's five tools are available. Start a fresh agent conversation if the workspace rules/skill have not loaded, then send `/duck The homepage is slow; I suspect the database. Guide me.`
 
-The repo supplies `.agents/rules/quack-aloud.md` and `.agents/workflows/duck.md`; it does not pre-register an Antigravity MCP entry. Preserve other servers when editing the configuration. See [Antigravity MCP configuration](https://antigravity.google/docs/mcp/).
+The repo supplies `.agents/rules/quack-aloud.md` and `.agents/skills/duck/SKILL.md`; it does not pre-register an Antigravity MCP entry. Preserve other servers when editing the configuration. See [Antigravity MCP configuration](https://antigravity.google/docs/mcp/).
+
+Alternatively, register local stdio through the Antigravity CLI from the repository root:
+
+```sh
+agy mcp add --env "DATA_DIR=$PWD/data" quack-aloud npx -y tsx "$PWD/server/mcp.ts"
+```
+
+Use the app's actual `DATA_DIR` if it differs. The command stores absolute paths so it can launch from other directories. Check the registered server with `agy mcp list` and its live connection with `/mcp`.
 
 For every client, guidance is off unless requested with words such as "guide", "引導", or "質疑"; the browser toggle does not set an external agent's mode. Request "new project: <name>" / "開新專案：<名稱>" or "new canvas: <name>" / "開新畫布：<名稱>" to create one, then select it in the browser picker. Natural-language requests to file thoughts can use the same workflow. Requests to explain or modify the app are development work.
 
@@ -196,7 +204,15 @@ This adds user-level configuration. Project configuration takes precedence, so t
 
 ##### Antigravity — HTTP
 
-In the MCP configuration opened through the client, replace the local `quack-aloud` entry with the following. Use the **personal/global configuration** when storing a token, and preserve other servers:
+Use **Settings → MCP access → Antigravity → copy the add command**, or replace the placeholders below:
+
+```sh
+agy mcp add --header "Authorization: Bearer <MCP_TOKEN>" quack-aloud https://your-quack-host/mcp
+```
+
+Place flags before the server name; the CLI detects the HTTP URL. The shared personal configuration is `~/.gemini/config/mcp_config.json`. The IDE also exposes it through its MCP settings. If `quack-aloud` is already registered locally, update that entry to use HTTP. [Antigravity MCP configuration](https://antigravity.google/docs/cli/mcp/).
+
+Alternatively, edit the MCP configuration opened through the client and replace the local `quack-aloud` entry with the following. Use the **personal/global configuration** when storing a token, and preserve other servers:
 
 ```json
 {
@@ -210,6 +226,16 @@ In the MCP configuration opened through the client, replace the local `quack-alo
 ```
 
 Replace `<MCP_TOKEN>` with the token from the target installation, remove that entry's stdio `command`, `args`, and `cwd`, then reload and check tools. Remove or update any conflicting workspace entry. Antigravity uses `serverUrl` for remote servers; this example stores a literal token, so keep the configuration private. [Antigravity MCP reference](https://antigravity.google/docs/mcp/).
+
+##### Gemini CLI — HTTP
+
+Other MCP clients can use the same endpoint. For Gemini CLI, replace the placeholders and register it in user settings:
+
+```sh
+gemini mcp add -s user -t http -H "Authorization: Bearer <MCP_TOKEN>" quack-aloud https://your-quack-host/mcp
+```
+
+Check the connection with `/mcp`, then use `list_projects` and `read_canvas`. Refer to `docs/duck-guide.md` when filing thoughts. [Gemini CLI MCP configuration](https://geminicli.com/docs/tools/mcp-server/).
 
 ##### Docker stdio — all three clients
 
@@ -245,7 +271,7 @@ For Kubernetes or another remote host, use HTTP rather than the local Docker com
 | Item | Purpose |
 |---|---|
 | `CLAUDE.md`, `AGENTS.md`, `.agents/rules/` | Agent-specific project instructions |
-| `.claude/commands/`, `.agents/skills/`, `.agents/workflows/` | Claude commands, Codex skills, and Antigravity workflows, respectively |
+| `.claude/commands/`, `.agents/skills/` | Claude commands and the shared Codex/Antigravity duck skill |
 | `docs/duck-guide.md` | Shared organising rules and local-file fallback |
 | `docs/development.md` | Shared instructions for changing the application |
 | `server/prompt.ts` | Runtime instructions sent to browser providers and advertised by MCP |
@@ -254,7 +280,7 @@ For Kubernetes or another remote host, use HTTP rather than the local Docker com
 | Claude Code / Codex / Antigravity login | Authenticates the external agent; independent of browser settings |
 | MCP bearer token | Authorises HTTP tools to read/write all projects on that installation |
 
-Neither browser provider automatically reads AGENTS.md or CLAUDE.md. Codex does not automatically treat Antigravity's `.agents/rules/` and `.agents/workflows/` as its own rules or skills. Configure MCP once per client/target installation, then reuse it; reconnect after changing its configuration or credentials. Registering an MCP server and loading a duck command/skill are separate steps.
+Neither browser provider automatically reads AGENTS.md or CLAUDE.md. Codex and Antigravity share `.agents/skills/duck/SKILL.md`, while their project instructions remain in `AGENTS.md` and `.agents/rules/quack-aloud.md`, respectively. Configure MCP once per client/target installation, then reuse it; reconnect after changing its configuration or credentials. Registering an MCP server and loading a duck command/skill are separate steps.
 
 #### Troubleshooting and testing
 
@@ -262,8 +288,8 @@ Neither browser provider automatically reads AGENTS.md or CLAUDE.md. Codex does 
 |---|---|
 | Claude `/duck` missing | Open this repo and start a fresh conversation so `.claude/commands/duck.md` loads |
 | Codex skill missing | Use `$duck` or `/skills`; confirm `.agents/skills/duck/SKILL.md` is present and restart if discovery has not refreshed |
-| Antigravity `/duck` missing | Open this repo as the workspace and check `.agents/workflows/duck.md`; reload/start a fresh conversation |
-| MCP missing or disconnected | Claude: `/mcp` and `claude mcp get quack-aloud`. Codex: `/mcp` and `codex mcp get quack-aloud --json`. Antigravity: its MCP manager and connection logs. Verify trust/approval, executable paths, and dependencies |
+| Antigravity `/duck` missing | Open this repo as the workspace and check `.agents/skills/duck/SKILL.md`; reload/start a fresh conversation |
+| MCP missing or disconnected | Claude: `/mcp` and `claude mcp get quack-aloud`. Codex: `/mcp` and `codex mcp get quack-aloud --json`. Antigravity: `agy mcp list`, `/mcp`, and its connection logs. Verify trust/approval, executable paths, and dependencies |
 | Wrong transport/endpoint | Check the effective server entry and conflicting scopes; choose one intended installation |
 | HTTP 401 | Check the target installation's token, launch environment or header, and reconnect after rotation; do not use the website password or provider API key |
 | Docker stdio fails | Confirm Compose is running, Docker is available, the project path is correct, and `-T` is present |
@@ -395,7 +421,7 @@ The prompt itself lives in `server/prompt.ts` and is shared by all providers.
 | A project or canvas vanished from the pickers | Its folder or file was deleted or renamed to something other than lowercase letters, digits, and dashes; or a project folder lost its `project.json` | Put it back under `data/projects/<pid>/` with a valid name |
 | Codex does not show the duck skill | Skill/config not loaded, or `/duck` used | Use `$duck` or `/skills` in CLI/IDE; restart after first setup. See [Agent setup](#agent-setup) |
 | Claude Code says "Unknown command: /duck" | The session started before `.claude/commands/duck.md` existed; commands are read at session start | Start a new session, or type the thought without `/duck` (CLAUDE.md already tells Claude Code how to file it) |
-| `/duck` does nothing in Antigravity | `.agents/workflows/duck.md` not picked up | Check the folder is the workspace root; the older `.agent/` name is also accepted |
+| `/duck` does nothing in Antigravity | `.agents/skills/duck/SKILL.md` not picked up | Check the folder is the workspace root (for `agy`, the folder you ran it in); the older `.agent/` name is also accepted. `agy -p /skills --add-dir .` lists what it found (without `--add-dir`, print mode answers before the workspace is scanned) |
 
 ## License
 

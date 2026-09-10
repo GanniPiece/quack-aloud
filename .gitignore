@@ -12,3 +12,4 @@ data/backup-*.json
 data/trash/
 data/settings.json
 data/auth.json
+data/users.json
