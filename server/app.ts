@@ -294,6 +294,8 @@ app.get("/api/settings/mcp", (req, res) => {
     source: mcpTokenSource(),
     url: `${origin}/mcp`,
     claudeCode: `claude mcp add --transport http quack-aloud ${origin}/mcp --header "Authorization: Bearer ${token}"`,
+    // agy (the Antigravity CLI) wants flags before the name and detects http URLs itself
+    antigravity: `agy mcp add --header "Authorization: Bearer ${token}" quack-aloud ${origin}/mcp`,
   });
 });
 
