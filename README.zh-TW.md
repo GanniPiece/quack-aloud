@@ -30,7 +30,7 @@ Quack Aloud 是帶畫布的橡皮鴨除錯法：你對一隻鴨子把想法說�
 | `server/providers/` | LLM 後端 | 用 `PROVIDER` 切換。目前只有 `claude` |
 | `src/` | Vite + React + React Flow 的 UI | 左邊聊天、右邊畫布 |
 | `server/mcp.ts`、`server/mcpHttp.ts` | 鴨子的 MCP server：五個工具，走 stdio 或 HTTP 的 `/mcp` | 讓 Claude Code、Antigravity 或任何 MCP client 透過 `duck_turn` 歸檔卡片，用 agent 自己的方案、不需 API key。見下方「MCP server」 |
-| `CLAUDE.md`、`.agents/` | 讓 coding agent 當鴨子的規則 | Claude Code 讀 `CLAUDE.md`；Antigravity 讀 `.agents/rules/quack-aloud.md` 並取得 `/duck` workflow。兩者都優先用 MCP 工具，沒有才退回改專案檔 |
+| `CLAUDE.md`、`.agents/` | 讓 coding agent 當鴨子的規則 | Claude Code 讀 `CLAUDE.md`；Antigravity（IDE 和 `agy` CLI）讀 `.agents/rules/quack-aloud.md`，並從 `.agents/skills/duck/` 取得 `/duck` skill。兩者都優先用 MCP 工具，沒有才退回改專案檔 |
 
 ## 開始使用
 
@@ -64,9 +64,9 @@ Claude Code 和 Google Antigravity 可以直接改開啟中的專案檔來扮演
 
 | 步驟 | Claude Code | Antigravity | Note |
 |---|---|---|---|
-| 1 | 在 Claude Code 開這個資料夾（Claude app 的 Code 分頁，或終端機的 `claude`） | 把這個資料夾當 workspace 開啟 | Claude Code 載入 `CLAUDE.md`；Antigravity 載入 `.agents/rules/quack-aloud.md`。兩份的規則和檔案格式相同 |
+| 1 | 在 Claude Code 開這個資料夾（Claude app 的 Code 分頁，或終端機的 `claude`） | 把這個資料夾當 workspace 開啟，或在裡面執行 `agy`（Antigravity CLI） | Claude Code 載入 `CLAUDE.md`；Antigravity 載入 `.agents/rules/quack-aloud.md`。兩份的規則和檔案格式相同 |
 | 2 | `npm run dev` 並開 http://localhost:5173 | 同左 | agent 直接看 `data/projects/` 找開啟中的 canvas（最近修改的那個檔），不需要 API，所以登入不會擋到它 |
-| 3 | 直接打想法，或 `/duck <想法>` | 在 agent panel 打 `/duck <想法>` | `/duck` 把意圖講明；Claude Code 直接打字也可以。指令清單在對話開始時讀取，clone 或 pull 之後要開新對話 `/duck` 才會出現 |
+| 3 | 直接打想法，或 `/duck <想法>` | 在 agent panel 或 `agy` 裡打 `/duck <想法>` | `/duck` 把意圖講明；Claude Code 直接打字也可以。指令清單在對話開始時讀取，clone 或 pull 之後要開新對話 `/duck` 才會出現 |
 | 4 | 訊息裡加「guide」「引導」或「質疑」會得到追問與質疑 | 同左 | 不加就只整理 |
 | 5 | 說「開新專案：<名稱>」開新專案，或「開新畫布：<名稱>」在目前專案下加一個 canvas | 同左 | agent 會在 `data/projects/` 建資料夾或檔案並把訊息其餘部分歸進去。到選單切換過去 |
 
@@ -85,11 +85,13 @@ app 本身也是一個 MCP server。agent 拿到五個工具：`list_projects`�
 |---|---|
 | Claude Code，HTTP | Settings › MCP access ›「copy the add command」貼上：`claude mcp add --transport http quack-aloud http://localhost:8787/mcp --header "Authorization: Bearer <token>"`（遠端的話換成實際 host） |
 | Claude Code，stdio | 不用設定：repo 裡的 `.mcp.json` 已登記 `quack-aloud`，詢問時核准即可。在別的資料夾：`claude mcp add quack-aloud -- npx tsx server/mcp.ts`（在這個資料夾執行，或設 `DATA_DIR`） |
-| Antigravity | Customizations › MCP：新增 HTTP server `http://localhost:8787/mcp`，header 帶 `Authorization: Bearer <token>`；或 stdio server，指令 `npx tsx server/mcp.ts`、工作目錄設這個資料夾 |
+| Antigravity（IDE 或 `agy` CLI），HTTP | Settings › MCP access › Antigravity 那列的「copy the add command」，貼到終端機：`agy mcp add --header "Authorization: Bearer <token>" quack-aloud http://localhost:8787/mcp`。flag 要放在名稱前面。它寫入使用者層級的 `~/.gemini/config/mcp_config.json`，IDE 的 Customizations › MCP 列的就是這份；在那裡手動加同一個 server 也可以 |
+| Antigravity，stdio | 在這個資料夾執行：`agy mcp add --env DATA_DIR=$PWD/data quack-aloud npx -y tsx $PWD/server/mcp.ts`。設定是跟著使用者、不是跟著專案，所以路徑要用絕對路徑 |
+| Gemini CLI | `gemini mcp add -s user -t http -H "Authorization: Bearer <token>" quack-aloud http://localhost:8787/mcp` |
 | 其他 MCP client | 同上兩種；端點是無狀態的 Streamable HTTP |
 | Docker 而 host 沒有 Node | 用 HTTP（container 本身提供 `/mcp`）。`.mcp.docker.json` 是替代方案，透過 `docker compose exec` 在 container 裡跑 stdio server |
 
-測試：`npm test` 涵蓋工具邏輯（`server/mcp.test.ts`）、記憶體傳輸上的協定（`server/mcp.protocol.test.ts`）、以及帶 token 的 HTTP 端點（`server/mcp.http.test.ts`，會在隨機 port 起整個 app）。手動：`npx @modelcontextprotocol/inspector` 指向 `http://localhost:8787/mcp` 並帶 bearer header，或指向 stdio 指令 `npx tsx server/mcp.ts`；在 Claude Code 開新對話後打 `/mcp` 應該看到 `quack-aloud`。
+測試：`npm test` 涵蓋工具邏輯（`server/mcp.test.ts`）、記憶體傳輸上的協定（`server/mcp.protocol.test.ts`）、以及帶 token 的 HTTP 端點（`server/mcp.http.test.ts`，會在隨機 port 起整個 app）。手動：`npx @modelcontextprotocol/inspector` 指向 `http://localhost:8787/mcp` 並帶 bearer header，或指向 stdio 指令 `npx tsx server/mcp.ts`；在 Claude Code 開新對話後打 `/mcp` 應該看到 `quack-aloud`；Antigravity 的話 `agy mcp list` 會列出它並標 enabled。
 
 兩條路和 app 內的聊天寫的是同一批檔案，可以混用。避免在 agent 寫檔的同一刻在瀏覽器拖卡片；瀏覽器會拒絕過期的寫入並顯示「canvas changed elsewhere」。
 
@@ -206,7 +208,7 @@ prompt 本身在 `server/prompt.ts`，所有 provider 共用。
 | 手改專案檔後畫布變空 | JSON 不合法，或卡片缺 `id` / `label` | server 會略過讀不了的檔、丟掉壞的項目；修好 JSON 再存一次 |
 | 專案或 canvas 從選單消失 | 資料夾或檔案被刪、名稱含小寫字母數字連字號以外的字元，或專案資料夾少了 `project.json` | 用合法名稱放回 `data/projects/<pid>/` |
 | Claude Code 說「Unknown command: /duck」 | 對話開始時 `.claude/commands/duck.md` 還不存在；指令在對話開始時讀取 | 開新對話，或不加 `/duck` 直接打想法（CLAUDE.md 已經教 Claude Code 怎麼歸檔） |
-| Antigravity 的 `/duck` 沒反應 | 沒吃到 `.agents/workflows/duck.md` | 確認這個資料夾是 workspace 根目錄；舊的 `.agent/` 名稱也接受 |
+| Antigravity 的 `/duck` 沒反應 | 沒吃到 `.agents/skills/duck/SKILL.md` | 確認這個資料夾是 workspace 根目錄（`agy` 的話是你執行它的資料夾）；舊的 `.agent/` 名稱也接受。`agy -p /skills --add-dir .` 會列出它找到的 skill（不帶 `--add-dir` 時 print mode 會在掃完 workspace 前就回答） |
 
 ## License
 

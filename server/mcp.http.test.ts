@@ -71,4 +71,21 @@ describe("MCP over HTTP", () => {
     const mcp = await fetch(`${base}/mcp`, { method: "GET", headers: { Authorization: `Bearer ${mcpToken()}`, Accept: "text/event-stream" } });
     expect(mcp.status).not.toBe(401);
   });
+
+  it("gives the owner ready-to-paste add commands for Claude Code and Antigravity", async () => {
+    const setup = await fetch(`${base}/api/auth/setup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "owner@example.com", password: "correct horse battery" }),
+    });
+    expect(setup.status).toBe(201);
+    const cookie = setup.headers.get("set-cookie")!.split(";")[0];
+    const res = await fetch(`${base}/api/settings/mcp`, { headers: { Cookie: cookie } });
+    expect(res.status).toBe(200);
+    const info = (await res.json()) as { token: string; url: string; claudeCode: string; antigravity: string };
+    expect(info.url).toBe(`${base}/mcp`);
+    expect(info.claudeCode).toBe(`claude mcp add --transport http quack-aloud ${base}/mcp --header "Authorization: Bearer ${info.token}"`);
+    // agy rejects flags placed after the server name, and detects http URLs without --type
+    expect(info.antigravity).toBe(`agy mcp add --header "Authorization: Bearer ${info.token}" quack-aloud ${base}/mcp`);
+  });
 });

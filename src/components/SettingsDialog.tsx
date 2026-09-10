@@ -10,7 +10,7 @@ interface Props {
 }
 
 function McpAccess() {
-  const [info, setInfo] = useState<{ token: string; source: "env" | "file"; url: string; claudeCode: string } | null>(null);
+  const [info, setInfo] = useState<{ token: string; source: "env" | "file"; url: string; claudeCode: string; antigravity: string } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [shown, setShown] = useState(false);
   const load = () => api.mcpInfo().then(setInfo).catch((err) => setMsg((err as Error).message));
@@ -50,6 +50,10 @@ function McpAccess() {
           <div className="token-row">
             <small>Claude Code:</small>
             <button className="link" onClick={() => copy(info.claudeCode, "Command")}>copy the add command</button>
+          </div>
+          <div className="token-row">
+            <small>Antigravity:</small>
+            <button className="link" onClick={() => copy(info.antigravity, "Command")}>copy the add command</button>
           </div>
           <div className="modal-actions">
             {msg && <small className="pw-msg">{msg}</small>}

@@ -32,7 +32,7 @@ Most AI tools invert the order of thinking: you ask, the model answers, and you 
 | `server/providers/` | LLM backends | Swappable via `PROVIDER`. Only `claude` is implemented |
 | `src/` | Vite + React + React Flow UI | Chat on the left, canvas on the right |
 | `server/mcp.ts`, `server/mcpHttp.ts` | The duck as an MCP server: five tools, over stdio or at `/mcp` over HTTP | Lets Claude Code, Antigravity, or any MCP client file cards through `duck_turn` on the agent's own plan, no API key. See "MCP server" below |
-| `CLAUDE.md`, `.agents/` | Rules for coding agents that act as the duck | Claude Code reads `CLAUDE.md`; Antigravity reads `.agents/rules/quack-aloud.md` and gets a `/duck` workflow. Both prefer the MCP tools and fall back to editing the project file |
+| `CLAUDE.md`, `.agents/` | Rules for coding agents that act as the duck | Claude Code reads `CLAUDE.md`; Antigravity (IDE and `agy` CLI) reads `.agents/rules/quack-aloud.md` and gets a `/duck` skill from `.agents/skills/duck/`. Both prefer the MCP tools and fall back to editing the project file |
 
 ## Getting started
 
@@ -66,9 +66,9 @@ Claude Code and Google Antigravity can play the duck by editing the open project
 
 | Step | Claude Code | Antigravity | Note |
 |---|---|---|---|
-| 1 | Open this folder in Claude Code (the Code tab in the Claude app, or `claude` in a terminal) | Open this folder as the workspace | Claude Code loads `CLAUDE.md`; Antigravity loads `.agents/rules/quack-aloud.md`. Both hold the same rules and file format |
+| 1 | Open this folder in Claude Code (the Code tab in the Claude app, or `claude` in a terminal) | Open this folder as the workspace, or run `agy` (the Antigravity CLI) in it | Claude Code loads `CLAUDE.md`; Antigravity loads `.agents/rules/quack-aloud.md`. Both hold the same rules and file format |
 | 2 | `npm run dev` and open http://localhost:5173 | same | The agent finds the open canvas by looking at `data/projects/` (the most recently modified canvas file); it never needs the API, so sign-in does not get in its way |
-| 3 | Type the thought, plainly or as `/duck <thought>` | `/duck <thought>` in the agent panel | `/duck` makes the intent explicit; a plain message in Claude Code works too. The command list is read when a session starts, so after cloning or pulling, start a new session before `/duck` shows up |
+| 3 | Type the thought, plainly or as `/duck <thought>` | `/duck <thought>` in the agent panel or in `agy` | `/duck` makes the intent explicit; a plain message in Claude Code works too. The command list is read when a session starts, so after cloning or pulling, start a new session before `/duck` shows up |
 | 4 | Add "guide", "引導", or "質疑" to the message for questions and challenges | same | Without it the agent only organises |
 | 5 | Say "new project: <name>" / "開新專案：<名稱>" for a fresh project, or "new canvas: <name>" / "開新畫布：<名稱>" for another canvas in the open project | same | The agent creates the folder or file under `data/projects/` and files the rest of the message there. Switch to it in the pickers |
 
@@ -87,11 +87,13 @@ Two transports serve the same tools; pick by where the agent runs relative to th
 |---|---|
 | Claude Code, HTTP | Settings › MCP access › "copy the add command", then paste: `claude mcp add --transport http quack-aloud http://localhost:8787/mcp --header "Authorization: Bearer <token>"` (use the real host for a remote app) |
 | Claude Code, stdio | Nothing: `.mcp.json` in this repo registers `quack-aloud`; approve it when asked. From another folder: `claude mcp add quack-aloud -- npx tsx server/mcp.ts` (run in this folder, or set `DATA_DIR`) |
-| Antigravity | Customizations › MCP: an HTTP server at `http://localhost:8787/mcp` with header `Authorization: Bearer <token>`, or a stdio server with command `npx tsx server/mcp.ts` and this folder as the working directory |
+| Antigravity (IDE or `agy` CLI), HTTP | Settings › MCP access › the Antigravity "copy the add command", then paste in a terminal: `agy mcp add --header "Authorization: Bearer <token>" quack-aloud http://localhost:8787/mcp`. Flags go before the name. It writes the user-wide `~/.gemini/config/mcp_config.json`, which the IDE lists under Customizations › MCP; adding the same server there by hand works too |
+| Antigravity, stdio | In this folder: `agy mcp add --env DATA_DIR=$PWD/data quack-aloud npx -y tsx $PWD/server/mcp.ts`. The config is per user, not per project, so the paths must be absolute |
+| Gemini CLI | `gemini mcp add -s user -t http -H "Authorization: Bearer <token>" quack-aloud http://localhost:8787/mcp` |
 | Other MCP clients | Same two options; the endpoint speaks Streamable HTTP, stateless |
 | Docker without Node on the host | Use HTTP (the container serves `/mcp`). `.mcp.docker.json` is an alternative that runs the stdio server inside the container via `docker compose exec` |
 
-Testing it: `npm test` covers the tool logic (`server/mcp.test.ts`), the protocol over an in-memory transport (`server/mcp.protocol.test.ts`), and the HTTP endpoint with its token (`server/mcp.http.test.ts`, which starts the whole app on an ephemeral port). By hand: `npx @modelcontextprotocol/inspector` and point it at `http://localhost:8787/mcp` with the bearer header, or at the stdio command `npx tsx server/mcp.ts`; in Claude Code, start a new session and type `/mcp` to see `quack-aloud`.
+Testing it: `npm test` covers the tool logic (`server/mcp.test.ts`), the protocol over an in-memory transport (`server/mcp.protocol.test.ts`), and the HTTP endpoint with its token (`server/mcp.http.test.ts`, which starts the whole app on an ephemeral port). By hand: `npx @modelcontextprotocol/inspector` and point it at `http://localhost:8787/mcp` with the bearer header, or at the stdio command `npx tsx server/mcp.ts`; in Claude Code, start a new session and type `/mcp` to see `quack-aloud`; with Antigravity, `agy mcp list` shows it as enabled.
 
 Both routes and the in-app chat write the same files, so they can be mixed. Avoid dragging cards in the browser at the exact moment the agent writes the file; the browser refuses the stale write and shows "canvas changed elsewhere".
 
@@ -208,7 +210,7 @@ The prompt itself lives in `server/prompt.ts` and is shared by all providers.
 | Canvas empty after editing a project file by hand | Invalid JSON, or nodes missing `id` / `label` | The server skips unreadable files and drops bad entries; fix the JSON and save again |
 | A project or canvas vanished from the pickers | Its folder or file was deleted or renamed to something other than lowercase letters, digits, and dashes; or a project folder lost its `project.json` | Put it back under `data/projects/<pid>/` with a valid name |
 | Claude Code says "Unknown command: /duck" | The session started before `.claude/commands/duck.md` existed; commands are read at session start | Start a new session, or type the thought without `/duck` (CLAUDE.md already tells Claude Code how to file it) |
-| `/duck` does nothing in Antigravity | `.agents/workflows/duck.md` not picked up | Check the folder is the workspace root; the older `.agent/` name is also accepted |
+| `/duck` does nothing in Antigravity | `.agents/skills/duck/SKILL.md` not picked up | Check the folder is the workspace root (for `agy`, the folder you ran it in); the older `.agent/` name is also accepted. `agy -p /skills --add-dir .` lists what it found (without `--add-dir`, print mode answers before the workspace is scanned) |
 
 ## License
 
