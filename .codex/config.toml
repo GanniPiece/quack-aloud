@@ -1,0 +1,7 @@
+# Local stdio MCP. Codex loads this only for trusted repositories.
+# npm locates the package root even when Codex starts in a subdirectory.
+# Run npm install first. HTTP/Docker/remote alternatives: README.md#agent-setup.
+[mcp_servers.quack-aloud]
+command = "npm"
+args = ["run", "--silent", "mcp"]
+startup_timeout_sec = 20

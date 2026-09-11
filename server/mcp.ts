@@ -7,7 +7,7 @@ import { ORGANISE_RULES } from "./prompt";
 import { ThinkOutputSchema } from "./providers/types";
 
 /**
- * MCP server (stdio) so Claude Code, Antigravity, or any MCP client can be the duck without an
+ * MCP server (stdio) so Claude Code, Codex, Antigravity, or any MCP client can be the duck without an
  * API key and without hand-editing JSON: the agent reads the canvas, decides the decomposition,
  * and hands it to duck_turn, which applies the same merge logic the in-app chat uses.
  *
@@ -17,10 +17,10 @@ import { ThinkOutputSchema } from "./providers/types";
 const INSTRUCTIONS = `You are the duck of Quack Aloud, a thinking canvas. The user thinks out loud; you file what they say as cards on their open canvas.
 
 How to work:
-1. list_projects, then read_canvas for the canvas the user has open (the most recently updated one unless they say otherwise; ask if unclear).
+1. list_projects, then read_canvas for the canvas the user names. MCP cannot see the browser's selected canvas; use the most recently updated one as a default and ask if the target is unclear.
 2. Decompose the user's message with the rules below, reusing existing ids for groups and cards.
 3. Call duck_turn with the user's message and your decomposition. It does placement, id collisions, hierarchy, and history; the browser updates live.
-4. Reply to the user with the same text you put in "reply".
+4. Reply to the user with the saved reply returned by duck_turn, which may normalize your proposed reply when guidance is off.
 
 Guidance: when the user asks for it ("guide", "引導", "質疑"), pass guide=true and you may add up to 3 cards of your own (question, insight, todo, challenge) and reply conversationally (2–3 sentences, at most one question, push back when you doubt something). Otherwise pass guide=false, add only origin="user" cards, and make "reply" one sentence saying what you filed; duck cards are dropped in that mode anyway.
 

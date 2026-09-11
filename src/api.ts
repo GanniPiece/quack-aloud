@@ -44,15 +44,31 @@ export interface UserRecord extends AuthUser {
   createdAt: number;
 }
 
-export interface SettingsInfo {
-  provider: string;
-  providers: string[];
+export interface ProviderSettingsInfo {
   model: string;
+  defaultModel: string;
+  keyPlaceholder: string;
   effort: string | null;
   efforts: string[];
   keyConfigured: boolean;
   keyMasked: string | null;
   keySource: "settings" | "env" | "none";
+}
+
+export interface SettingsInfo extends ProviderSettingsInfo {
+  provider: string;
+  providers: string[];
+  configurations: Record<string, ProviderSettingsInfo>;
+}
+
+export interface McpInfo {
+  token: string;
+  source: "env" | "file";
+  url: string;
+  claudeCode: string;
+  antigravity: string;
+  codex: string;
+  codexConfig: string;
 }
 
 export interface CanvasInfo {
@@ -82,7 +98,7 @@ export const api = {
     fetch("/api/auth/setup", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ email, password }) }).then((r) => json<{ ok: true }>(r)),
   authLogin: (email: string, password: string) =>
     fetch("/api/auth/login", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ email, password }) }).then((r) => json<{ ok: true }>(r)),
-  mcpInfo: () => fetch("/api/settings/mcp").then((r) => json<{ token: string; source: "env" | "file"; url: string; claudeCode: string; antigravity: string }>(r)),
+  mcpInfo: () => fetch("/api/settings/mcp").then((r) => json<McpInfo>(r)),
   rotateMcpToken: () => fetch("/api/settings/mcp/rotate", { method: "POST" }).then((r) => json<{ token: string }>(r)),
   listUsers: () => fetch("/api/auth/users").then((r) => json<UserRecord[]>(r)),
   addUser: (email: string, password: string, role: "owner" | "member" = "member") =>

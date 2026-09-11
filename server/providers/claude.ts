@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { PROVIDER_DEFAULTS, type Effort as ProviderEffort } from "../providerConfig";
 import { RefusalError, ThinkOutputSchema, type ThinkInput, type ThinkOutput, type ThinkProvider } from "./types";
 
 type Effort = "low" | "medium" | "high" | "xhigh" | "max";
@@ -7,7 +8,7 @@ type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 export interface ClaudeOptions {
   apiKey?: string;
   model?: string;
-  effort?: Effort;
+  effort?: ProviderEffort;
 }
 
 export class ClaudeProvider implements ThinkProvider {
@@ -19,8 +20,8 @@ export class ClaudeProvider implements ThinkProvider {
 
   constructor(opts: ClaudeOptions = {}) {
     this.apiKey = opts.apiKey;
-    this.model = opts.model ?? "claude-opus-5";
-    this.effort = opts.effort ?? "medium";
+    this.model = opts.model || PROVIDER_DEFAULTS.claude.model;
+    this.effort = opts.effort && opts.effort !== "none" ? opts.effort : "medium";
   }
 
   configured() {

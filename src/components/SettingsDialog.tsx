@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type AuthUser, type SettingsInfo, type UserRecord } from "../api";
+import { api, type AuthUser, type McpInfo, type SettingsInfo, type UserRecord } from "../api";
 
 interface Props {
   onClose: () => void;
@@ -10,7 +10,7 @@ interface Props {
 }
 
 function McpAccess() {
-  const [info, setInfo] = useState<{ token: string; source: "env" | "file"; url: string; claudeCode: string; antigravity: string } | null>(null);
+  const [info, setInfo] = useState<McpInfo | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [shown, setShown] = useState(false);
   const load = () => api.mcpInfo().then(setInfo).catch((err) => setMsg((err as Error).message));
@@ -38,7 +38,7 @@ function McpAccess() {
   return (
     <details className="field">
       <summary>MCP access</summary>
-      <small>Agents (Claude Code, Antigravity, others) can drive the duck over HTTP at the address below with this bearer token. Anyone holding the token can read and write every project.</small>
+      <small>Agents (Claude Code, Codex, Antigravity) can drive the duck over HTTP at the address below with this bearer token. Anyone holding the token can read and write every project.</small>
       {info && (
         <>
           <div className="token-row">
@@ -52,8 +52,14 @@ function McpAccess() {
             <button className="link" onClick={() => copy(info.claudeCode, "Command")}>copy the add command</button>
           </div>
           <div className="token-row">
+            <small>Codex:</small>
+            <button className="link" onClick={() => copy(info.codexConfig, "Codex HTTP config")}>copy HTTP config</button>
+            <button className="link" onClick={() => copy(info.codex, "Codex command")}>copy the add command</button>
+          </div>
+          <small>Codex in this repo uses local MCP by default. For HTTP, replace its .codex/config.toml MCP table with the copied HTTP config. For other workspaces, use the add command. Set QUACK_ALOUD_MCP_TOKEN to the token above in Codex's launch environment, then restart Codex.</small>
+          <div className="token-row">
             <small>Antigravity:</small>
-            <button className="link" onClick={() => copy(info.antigravity, "Command")}>copy the add command</button>
+            <button className="link" onClick={() => copy(info.antigravity, "Antigravity command")}>copy the add command</button>
           </div>
           <div className="modal-actions">
             {msg && <small className="pw-msg">{msg}</small>}
@@ -136,6 +142,20 @@ export function SettingsDialog({ onClose, onSaved, me }: Props) {
   const [pwNext, setPwNext] = useState("");
   const [pwBusy, setPwBusy] = useState(false);
   const [pwMsg, setPwMsg] = useState<string | null>(null);
+  const selected = info?.configurations[provider];
+  const canEdit = me?.role === "owner";
+
+  const selectProvider = (name: string) => {
+    const config = info?.configurations[name];
+    if (!config) return;
+    setProvider(name);
+    setModel(config.model);
+    setEffort(config.effort ?? "");
+    // A typed key must never be carried into another provider's save request.
+    setApiKey("");
+    setClearKey(false);
+    setError(null);
+  };
 
   const changePassword = async () => {
     setPwBusy(true);
@@ -197,15 +217,17 @@ export function SettingsDialog({ onClose, onSaved, me }: Props) {
       <div className="modal" role="dialog" aria-label="Settings">
         <h2>Settings</h2>
         {!info && !error && <p className="muted">Loading…</p>}
-        {info && (
-          <>
+        {info && selected && (
+          <fieldset className="provider-settings" disabled={!canEdit || saving}>
+            {!canEdit && <p className="muted">Only the owner can change the shared AI settings.</p>}
             <label className="field">
               <span>Provider</span>
-              <select value={provider} onChange={(e) => setProvider(e.target.value)}>
+              <select value={provider} onChange={(e) => selectProvider(e.target.value)}>
                 {info.providers.map((p) => (
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>
+              <small>Browser chat uses the selected provider's API key. Save before switching to keep edits; switching loads that provider's saved settings.</small>
             </label>
             <label className="field">
               <span>API key</span>
@@ -213,18 +235,18 @@ export function SettingsDialog({ onClose, onSaved, me }: Props) {
                 type="password"
                 autoComplete="off"
                 value={apiKey}
-                placeholder={info.keyConfigured ? `Stored (${info.keyMasked}); type to replace` : "sk-ant-…"}
+                placeholder={selected.keyConfigured ? `Configured (${selected.keyMasked}); type to replace` : selected.keyPlaceholder}
                 disabled={clearKey}
                 onChange={(e) => setApiKey(e.target.value)}
               />
               <small>
-                {info.keyConfigured
-                  ? info.keySource === "env"
+                {selected.keyConfigured
+                  ? selected.keySource === "env"
                     ? "Currently from the environment (.env). A key saved here takes precedence."
                     : "Saved on this server in data/settings.json (readable by its owner only). It is never sent back to the browser."
                   : "Billed per token by the provider, separately from any chat subscription. Saved on the server, never in the browser."}
               </small>
-              {info.keyConfigured && info.keySource === "settings" && (
+              {selected.keyConfigured && selected.keySource === "settings" && (
                 <label className="check">
                   <input type="checkbox" checked={clearKey} onChange={(e) => setClearKey(e.target.checked)} /> Remove the stored key
                 </label>
@@ -233,19 +255,19 @@ export function SettingsDialog({ onClose, onSaved, me }: Props) {
             <div className="field-row">
               <label className="field">
                 <span>Model</span>
-                <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="claude-opus-5" />
+                <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={selected.defaultModel} />
               </label>
               <label className="field">
                 <span>Effort</span>
                 <select value={effort} onChange={(e) => setEffort(e.target.value)}>
-                  {info.efforts.map((e) => (
+                  {selected.efforts.map((e) => (
                     <option key={e} value={e}>{e}</option>
                   ))}
                 </select>
                 <small>Higher is slower and costs more.</small>
               </label>
             </div>
-          </>
+          </fieldset>
         )}
         {error && <div className="chat-error">{error}</div>}
         <details className="field">
@@ -263,7 +285,7 @@ export function SettingsDialog({ onClose, onSaved, me }: Props) {
         {me?.role === "owner" && <Accounts me={me} />}
         <div className="modal-actions">
           <button className="ghost" onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={save} disabled={!info || saving}>
+          <button className="primary" onClick={save} disabled={!info || saving || !canEdit}>
             {saving ? "Saving…" : "Save"}
           </button>
         </div>

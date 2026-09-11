@@ -2,6 +2,7 @@
 # and use a ReadWriteOnce volume. Create the secret first:
 #   kubectl create secret generic quack-aloud --from-literal=ANTHROPIC_API_KEY=sk-ant-... \
 #     --from-literal=APP_EMAIL=you@example.com --from-literal=APP_PASSWORD=...
+# For OpenAI instead, use --from-literal=OPENAI_API_KEY=... and set PROVIDER=openai below.
 # Add --from-literal=MCP_TOKEN=... to pin the MCP bearer token (otherwise one is generated on the volume).
 # APP_EMAIL + APP_PASSWORD seed the owner account on first start (or leave them out and create
 # it on the first visit; accounts are kept on the volume). Set TRUST_PROXY=1 when an Ingress
@@ -40,6 +41,8 @@ spec:
           ports:
             - containerPort: 8787
           env:
+            - name: PROVIDER
+              value: claude         # or openai; the matching key must be in the Secret
             - name: DATA_DIR
               value: /data
             - name: API_PORT
@@ -47,6 +50,10 @@ spec:
             - name: CLAUDE_MODEL
               value: claude-opus-5
             - name: CLAUDE_EFFORT
+              value: medium
+            - name: OPENAI_MODEL
+              value: gpt-5.4-mini
+            - name: OPENAI_EFFORT
               value: medium
             - name: TRUST_PROXY
               value: "1"
